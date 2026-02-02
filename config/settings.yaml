@@ -44,7 +44,7 @@ sources:
   # === TIER 1: Major Financial News ===
   
   reuters:
-    enabled: true
+    enabled: false  # Disabled: reutersagency.com RSS feeds return 404
     name: "Reuters"
     rss_feeds:
       - "https://www.reutersagency.com/feed/?taxonomy=markets&post_type=reuters-best"
@@ -84,27 +84,26 @@ sources:
     enabled: true
     name: "Financial Times"
     rss_feeds:
-      - "https://www.ft.com/rss/home/us"
-      - "https://www.ft.com/rss/markets"
-      - "https://www.ft.com/rss/companies"
-      - "https://www.ft.com/rss/technology"
+      # Note: FT changed RSS format from /rss/section to /section?format=rss
+      - "https://www.ft.com/companies?format=rss"
+      - "https://www.ft.com/markets?format=rss"
+      - "https://www.ft.com/technology?format=rss"
+      - "https://www.ft.com/world?format=rss"
 
   marketwatch:
     enabled: true
     name: "MarketWatch"
     rss_feeds:
+      # Note: Most MarketWatch RSS feeds now return 403; only topstories works
       - "https://www.marketwatch.com/rss/topstories"
-      - "https://www.marketwatch.com/rss/markets"
-      - "https://www.marketwatch.com/rss/investing"
-      - "https://www.marketwatch.com/rss/personal-finance"
 
   seekingalpha:
     enabled: true
     name: "Seeking Alpha"
     rss_feeds:
       - "https://seekingalpha.com/feed.xml"
-      - "https://seekingalpha.com/market_outlook/feed.xml"
-      - "https://seekingalpha.com/news/feed.xml"
+      - "https://seekingalpha.com/market_currents.xml"
+      - "https://seekingalpha.com/tag/wall-st-breakfast.xml"
 
   investingcom:
     enabled: true
@@ -161,16 +160,15 @@ sources:
     name: "Forbes"
     rss_feeds:
       - "https://www.forbes.com/business/feed/"
-      - "https://www.forbes.com/money/feed/"
       - "https://www.forbes.com/technology/feed/"
+      - "https://www.forbes.com/innovation/feed/"
 
   fortune:
     enabled: true
     name: "Fortune"
     rss_feeds:
+      # Note: Fortune section-specific feeds return 404; only main feed works
       - "https://fortune.com/feed/"
-      - "https://fortune.com/finance/feed/"
-      - "https://fortune.com/tech/feed/"
 
   fastcompany:
     enabled: true
@@ -191,7 +189,8 @@ sources:
     enabled: true
     name: "Guardian Business"
     rss_feeds:
-      - "https://www.theguardian.com/us-business/rss"
+      # Note: us-business/rss returns 404; using uk/business/rss instead
+      - "https://www.theguardian.com/uk/business/rss"
       - "https://www.theguardian.com/technology/rss"
       - "https://www.theguardian.com/business/stock-markets/rss"
 
@@ -204,7 +203,7 @@ sources:
       - "https://rss.nytimes.com/services/xml/rss/nyt/YourMoney.xml"
 
   ap_news:
-    enabled: true
+    enabled: false  # Disabled: rsshub.app feeds return 403
     name: "AP News"
     rss_feeds:
       - "https://rsshub.app/apnews/topics/ap-business"
@@ -220,13 +219,13 @@ sources:
       - "https://finance.yahoo.com/rss/topstories"
 
   morningbrew:
-    enabled: true
+    enabled: false  # Disabled: Feed returns 404
     name: "Morning Brew"
     rss_feeds:
       - "https://morningbrew.com/daily/rss"
 
   finviz:
-    enabled: true
+    enabled: false  # Disabled: DNS resolution fails
     name: "Finviz"
     rss_feeds:
       - "https://rss.finviz.com/news.ashx"

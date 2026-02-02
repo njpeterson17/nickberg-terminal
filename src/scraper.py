@@ -673,6 +673,8 @@ class BaseScraper(ABC):
             "%Y-%m-%d %H:%M:%S",
             "%a, %d %b %Y %H:%M:%S %Z",
             "%a, %d %b %Y %H:%M:%S %z",
+            "%b %d, %Y %H:%M %Z",  # e.g., "Feb 01, 2026 14:59 GMT"
+            "%b %d, %Y %H:%M %z",  # e.g., "Feb 01, 2026 14:59 +0000"
         ]
 
         for fmt in formats:
