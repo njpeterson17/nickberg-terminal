@@ -150,17 +150,11 @@ class Database:
             conn.commit()
         except sqlite3.Error as e:
             conn.rollback()
-            logger.error(
-                "Transaction rolled back due to database error",
-                extra={"error": str(e)}
-            )
+            logger.error("Transaction rolled back due to database error", extra={"error": str(e)})
             raise DatabaseTransactionError(f"Transaction failed: {e}") from e
         except Exception as e:
             conn.rollback()
-            logger.error(
-                "Transaction rolled back due to error",
-                extra={"error": str(e)}
-            )
+            logger.error("Transaction rolled back due to error", extra={"error": str(e)})
             raise DatabaseTransactionError(f"Transaction failed: {e}") from e
         finally:
             conn.close()
@@ -173,7 +167,10 @@ class Database:
             columns = [row["name"] for row in cursor.fetchall()]
 
             if "content_hash" not in columns:
-                logger.info("Running migration", extra={"migration": "Adding content_hash column to articles table"})
+                logger.info(
+                    "Running migration",
+                    extra={"migration": "Adding content_hash column to articles table"},
+                )
                 conn.execute("ALTER TABLE articles ADD COLUMN content_hash TEXT")
 
                 # Create index for content_hash lookups
@@ -198,7 +195,7 @@ class Database:
                 conn.commit()
                 logger.info(
                     "Migration complete",
-                    extra={"migration": "content_hash", "articles_updated": len(rows)}
+                    extra={"migration": "content_hash", "articles_updated": len(rows)},
                 )
 
     def init_db(self):
@@ -310,7 +307,7 @@ class Database:
                 if existing:
                     logger.debug(
                         "Skipping duplicate article by content hash",
-                        extra={"title": article.title[:50], "existing_url": existing["url"][:50]}
+                        extra={"title": article.title[:50], "existing_url": existing["url"][:50]},
                     )
                     return None
 
@@ -335,7 +332,11 @@ class Database:
                 if cursor.lastrowid:
                     logger.debug(
                         "Saved article",
-                        extra={"article_id": cursor.lastrowid, "source": article.source, "title": article.title[:60]}
+                        extra={
+                            "article_id": cursor.lastrowid,
+                            "source": article.source,
+                            "title": article.title[:60],
+                        },
                     )
                     return cursor.lastrowid
                 return None
@@ -369,7 +370,11 @@ class Database:
         except sqlite3.Error as e:
             logger.error(
                 "Error saving mention",
-                extra={"error": str(e), "ticker": mention.company_ticker, "article_id": mention.article_id}
+                extra={
+                    "error": str(e),
+                    "ticker": mention.company_ticker,
+                    "article_id": mention.article_id,
+                },
             )
             return False
 
@@ -407,7 +412,7 @@ class Database:
                 if existing:
                     logger.debug(
                         "Skipping duplicate article by content hash",
-                        extra={"title": article.title[:50], "existing_url": existing["url"][:50]}
+                        extra={"title": article.title[:50], "existing_url": existing["url"][:50]},
                     )
                     return None
 
@@ -449,7 +454,11 @@ class Database:
 
                 logger.debug(
                     "Saved article with mentions",
-                    extra={"article_id": article_id, "mentions": len(mentions), "title": article.title[:60]}
+                    extra={
+                        "article_id": article_id,
+                        "mentions": len(mentions),
+                        "title": article.title[:60],
+                    },
                 )
                 return article_id
 
@@ -459,13 +468,13 @@ class Database:
         except sqlite3.IntegrityError as e:
             logger.warning(
                 "Integrity error saving article with mentions",
-                extra={"error": str(e), "url": article.url}
+                extra={"error": str(e), "url": article.url},
             )
             return None
         except sqlite3.Error as e:
             logger.error(
                 "Database error saving article with mentions",
-                extra={"error": str(e), "url": article.url}
+                extra={"error": str(e), "url": article.url},
             )
             return None
 
@@ -488,7 +497,7 @@ class Database:
                 if existing:
                     logger.debug(
                         "Duplicate alert suppressed",
-                        extra={"ticker": alert.company_ticker, "alert_type": alert.alert_type}
+                        extra={"ticker": alert.company_ticker, "alert_type": alert.alert_type},
                     )
                     return None
 
@@ -513,14 +522,18 @@ class Database:
                         "alert_id": cursor.lastrowid,
                         "alert_type": alert.alert_type,
                         "ticker": alert.company_ticker,
-                        "severity": alert.severity
-                    }
+                        "severity": alert.severity,
+                    },
                 )
                 return cursor.lastrowid
         except sqlite3.Error as e:
             logger.error(
                 "Error saving alert",
-                extra={"error": str(e), "ticker": alert.company_ticker, "alert_type": alert.alert_type}
+                extra={
+                    "error": str(e),
+                    "ticker": alert.company_ticker,
+                    "alert_type": alert.alert_type,
+                },
             )
             return None
 
@@ -638,7 +651,11 @@ class Database:
             conn.commit()
             logger.info(
                 "Cleaned up old data",
-                extra={"deleted_articles": deleted_articles, "deleted_alerts": deleted_alerts, "retention_days": retention_days}
+                extra={
+                    "deleted_articles": deleted_articles,
+                    "deleted_alerts": deleted_alerts,
+                    "retention_days": retention_days,
+                },
             )
 
     def get_stats(self) -> dict[str, Any]:

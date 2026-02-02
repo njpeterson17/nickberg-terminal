@@ -134,12 +134,15 @@ class TestApiStats:
         """Test that stats endpoint returns JSON."""
         client, mock_db = client_and_db
 
-        with patch("web.app.get_db_stats", return_value={
-            "total_articles": 100,
-            "total_mentions": 500,
-            "total_alerts": 10,
-            "articles_24h": 25,
-        }):
+        with patch(
+            "web.app.get_db_stats",
+            return_value={
+                "total_articles": 100,
+                "total_mentions": 500,
+                "total_alerts": 10,
+                "articles_24h": 25,
+            },
+        ):
             response = client.get("/api/stats")
 
         assert response.status_code == 200
@@ -155,12 +158,15 @@ class TestApiStats:
         """Test stats endpoint returns correct values."""
         client, mock_db = client_and_db
 
-        with patch("web.app.get_db_stats", return_value={
-            "total_articles": 150,
-            "total_mentions": 750,
-            "total_alerts": 25,
-            "articles_24h": 40,
-        }):
+        with patch(
+            "web.app.get_db_stats",
+            return_value={
+                "total_articles": 150,
+                "total_mentions": 750,
+                "total_alerts": 25,
+                "articles_24h": 40,
+            },
+        ):
             response = client.get("/api/stats")
             data = json.loads(response.data)
 
@@ -320,7 +326,15 @@ class TestApiAuthentication:
     def test_no_api_key_configured_allows_access(self, client):
         """Test that endpoints work without API key when not configured."""
         # client fixture has no API key configured
-        with patch("web.app.get_db_stats", return_value={"total_articles": 0, "total_mentions": 0, "total_alerts": 0, "articles_24h": 0}):
+        with patch(
+            "web.app.get_db_stats",
+            return_value={
+                "total_articles": 0,
+                "total_mentions": 0,
+                "total_alerts": 0,
+                "articles_24h": 0,
+            },
+        ):
             response = client.get("/api/stats")
         assert response.status_code == 200
 
@@ -531,12 +545,10 @@ class TestApiSentiment:
         """Test sentiment endpoint returns distribution."""
         client, mock_db = client_and_db
 
-        with patch("web.app.get_sentiment_distribution", return_value={
-            "positive": 10,
-            "negative": 5,
-            "neutral": 15,
-            "total": 30
-        }):
+        with patch(
+            "web.app.get_sentiment_distribution",
+            return_value={"positive": 10, "negative": 5, "neutral": 15, "total": 30},
+        ):
             response = client.get("/api/sentiment")
 
         assert response.status_code == 200
@@ -560,10 +572,10 @@ class TestApiSources:
         """Test sources endpoint returns distribution."""
         client, mock_db = client_and_db
 
-        with patch("web.app.get_source_distribution", return_value=[
-            {"source": "Reuters", "count": 50},
-            {"source": "Bloomberg", "count": 30}
-        ]):
+        with patch(
+            "web.app.get_source_distribution",
+            return_value=[{"source": "Reuters", "count": 50}, {"source": "Bloomberg", "count": 30}],
+        ):
             response = client.get("/api/sources")
 
         assert response.status_code == 200

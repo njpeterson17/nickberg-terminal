@@ -81,13 +81,22 @@ class AlertManager:
                 last_exception = e
                 logger.warning(
                     "Alert request timed out",
-                    extra={"description": description, "attempt": attempt + 1, "max_attempts": max_retries}
+                    extra={
+                        "description": description,
+                        "attempt": attempt + 1,
+                        "max_attempts": max_retries,
+                    },
                 )
             except ConnectionError as e:
                 last_exception = e
                 logger.warning(
                     "Alert connection failed",
-                    extra={"description": description, "attempt": attempt + 1, "max_attempts": max_retries, "error": str(e)}
+                    extra={
+                        "description": description,
+                        "attempt": attempt + 1,
+                        "max_attempts": max_retries,
+                        "error": str(e),
+                    },
                 )
             except HTTPError as e:
                 last_exception = e
@@ -96,30 +105,51 @@ class AlertManager:
                     if e.response.status_code != 429:
                         logger.error(
                             "Alert failed with client error",
-                            extra={"description": description, "status_code": e.response.status_code, "error": str(e)}
+                            extra={
+                                "description": description,
+                                "status_code": e.response.status_code,
+                                "error": str(e),
+                            },
                         )
                         return False
                 logger.warning(
                     "Alert HTTP error",
-                    extra={"description": description, "attempt": attempt + 1, "max_attempts": max_retries, "error": str(e)}
+                    extra={
+                        "description": description,
+                        "attempt": attempt + 1,
+                        "max_attempts": max_retries,
+                        "error": str(e),
+                    },
                 )
             except RequestException as e:
                 last_exception = e
                 logger.warning(
                     "Alert request failed",
-                    extra={"description": description, "attempt": attempt + 1, "max_attempts": max_retries, "error": str(e)}
+                    extra={
+                        "description": description,
+                        "attempt": attempt + 1,
+                        "max_attempts": max_retries,
+                        "error": str(e),
+                    },
                 )
 
             # Calculate delay with exponential backoff
             if attempt < max_retries - 1:
                 delay = initial_delay * (2**attempt)
-                logger.debug("Retrying alert", extra={"description": description, "delay_seconds": round(delay, 1)})
+                logger.debug(
+                    "Retrying alert",
+                    extra={"description": description, "delay_seconds": round(delay, 1)},
+                )
                 time.sleep(delay)
 
         # All retries exhausted
         logger.error(
             "Alert failed after all retries",
-            extra={"description": description, "attempts": max_retries, "last_error": str(last_exception)}
+            extra={
+                "description": description,
+                "attempts": max_retries,
+                "last_error": str(last_exception),
+            },
         )
         return False
 
@@ -200,7 +230,7 @@ class AlertManager:
         except Exception as e:
             logger.error(
                 "Failed to write alert to file",
-                extra={"alert_type": alert.pattern_type, "ticker": alert.ticker, "error": str(e)}
+                extra={"alert_type": alert.pattern_type, "ticker": alert.ticker, "error": str(e)},
             )
 
     def _telegram_alert(self, alert: PatternAlert):
@@ -231,7 +261,11 @@ class AlertManager:
         if success:
             logger.info(
                 "Telegram alert sent",
-                extra={"alert_type": "telegram", "ticker": alert.ticker, "severity": alert.severity}
+                extra={
+                    "alert_type": "telegram",
+                    "ticker": alert.ticker,
+                    "severity": alert.severity,
+                },
             )
 
     def _webhook_alert(self, alert: PatternAlert):
@@ -254,7 +288,7 @@ class AlertManager:
         if success:
             logger.info(
                 "Webhook alert sent",
-                extra={"alert_type": "webhook", "ticker": alert.ticker, "severity": alert.severity}
+                extra={"alert_type": "webhook", "ticker": alert.ticker, "severity": alert.severity},
             )
 
     def get_recent_alerts(self, limit: int = 20) -> list[dict[str, Any]]:
