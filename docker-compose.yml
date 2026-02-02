@@ -1,0 +1,173 @@
+# News Sentinel Bot - Docker Compose Configuration
+# Production-ready setup with scraper and web dashboard services
+
+version: "3.8"
+
+services:
+  # ===========================================================================
+  # News Scraper Service
+  # Runs the news scraping bot on a schedule or continuously
+  # ===========================================================================
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: news-sentinel-bot:latest
+    container_name: news-sentinel-scraper
+    command: scraper
+
+    # Environment variables
+    environment:
+      # Scraper configuration
+      - SCRAPER_MODE=${SCRAPER_MODE:-continuous}
+      - SCRAPER_INTERVAL_SECONDS=${SCRAPER_INTERVAL_SECONDS:-900}
+
+      # Telegram notifications (optional)
+      - NEWS_BOT_TELEGRAM_ENABLED=${NEWS_BOT_TELEGRAM_ENABLED:-false}
+      - NEWS_BOT_TELEGRAM_TOKEN=${NEWS_BOT_TELEGRAM_TOKEN:-}
+      - NEWS_BOT_TELEGRAM_CHAT_ID=${NEWS_BOT_TELEGRAM_CHAT_ID:-}
+
+      # Webhook notifications (optional)
+      - NEWS_BOT_WEBHOOK_ENABLED=${NEWS_BOT_WEBHOOK_ENABLED:-false}
+      - NEWS_BOT_WEBHOOK_URL=${NEWS_BOT_WEBHOOK_URL:-}
+
+      # Database path
+      - NEWS_SENTINEL_DB_PATH=/app/data/news_sentinel.db
+
+      # Logging
+      - NEWS_SENTINEL_LOG_LEVEL=${NEWS_SENTINEL_LOG_LEVEL:-INFO}
+
+    # Persistent storage
+    volumes:
+      - news-data:/app/data
+      - news-logs:/app/logs
+      # Optional: Mount custom config
+      # - ./config:/app/config:ro
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+
+    # Health check (scraper doesn't expose HTTP, so we check the process)
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "python.*main.py"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Network
+    networks:
+      - news-sentinel-network
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Web Dashboard Service
+  # Provides the Flask-based monitoring dashboard
+  # ===========================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: news-sentinel-bot:latest
+    container_name: news-sentinel-web
+    command: web
+
+    # Environment variables
+    environment:
+      # Flask configuration
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=5000
+      - WEB_WORKERS=${WEB_WORKERS:-4}
+
+      # API authentication
+      - NEWS_SENTINEL_API_KEY=${NEWS_SENTINEL_API_KEY:-}
+
+      # Database path (shared with scraper)
+      - NEWS_SENTINEL_DB_PATH=/app/data/news_sentinel.db
+
+      # Logging
+      - NEWS_SENTINEL_LOG_LEVEL=${NEWS_SENTINEL_LOG_LEVEL:-INFO}
+
+    # Persistent storage (shared volumes with scraper)
+    volumes:
+      - news-data:/app/data
+      - news-logs:/app/logs
+      # Optional: Mount custom config
+      # - ./config:/app/config:ro
+
+    # Port mapping
+    ports:
+      - "${WEB_PORT:-5000}:5000"
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Depends on scraper being ready (for initial database creation)
+    depends_on:
+      scraper:
+        condition: service_started
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Network
+    networks:
+      - news-sentinel-network
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Named Volumes
+# =============================================================================
+volumes:
+  news-data:
+    driver: local
+    name: news-sentinel-data
+  news-logs:
+    driver: local
+    name: news-sentinel-logs
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  news-sentinel-network:
+    driver: bridge
+    name: news-sentinel-network

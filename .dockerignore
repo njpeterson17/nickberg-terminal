@@ -1,0 +1,66 @@
+# News Sentinel Bot - Docker Ignore
+# Files and directories to exclude from Docker build context
+
+# Git
+.git/
+.gitignore
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Runtime data (will be mounted as volumes)
+data/
+logs/
+web/data/
+web/logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (secrets!)
+.env
+*.env.local
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Development files
+demo.py
+*.sh
+!docker-entrypoint.sh
+!start-web.sh
+
+# Docker files (don't need to copy these into the image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore

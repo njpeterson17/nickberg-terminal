@@ -28,3 +28,11 @@ Thumbs.db
 
 # Environment variables (secrets)
 .env
+
+# Coverage reports
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker
+.docker/

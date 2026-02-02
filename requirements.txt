@@ -4,6 +4,7 @@ feedparser>=6.0.10
 pyyaml>=6.0
 lxml>=4.9.0
 flask>=2.3.0
+gunicorn>=21.0.0
 vaderSentiment>=3.3.2
 pytest>=7.0.0
 pytest-cov>=4.0.0

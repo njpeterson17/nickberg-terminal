@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from datetime import datetime, timedelta
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from pattern_detector import PatternDetector, PatternAlert
 
@@ -25,7 +25,7 @@ class TestPatternAlert:
             company_name="Apple",
             severity="high",
             message="Test alert message",
-            details={"key": "value"}
+            details={"key": "value"},
         )
 
         assert alert.pattern_type == "volume_spike"
@@ -43,7 +43,7 @@ class TestPatternAlert:
             company_name="Google",
             severity="medium",
             message="Sentiment changed",
-            details={"shift": 0.5}
+            details={"shift": 0.5},
         )
 
         alert_dict = alert.to_dict()
@@ -78,7 +78,7 @@ class TestPatternDetectorVolumeSpike:
         detector = PatternDetector(mock_database, sample_config)
 
         # Mock _get_company_articles to return empty (no sentiment/negative cluster alerts)
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         # Should detect volume spike
@@ -104,7 +104,7 @@ class TestPatternDetectorVolumeSpike:
 
         detector = PatternDetector(mock_database, sample_config)
 
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         volume_alerts = [a for a in alerts if a.pattern_type == "volume_spike"]
@@ -128,7 +128,7 @@ class TestPatternDetectorVolumeSpike:
 
         detector = PatternDetector(mock_database, sample_config)
 
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         volume_alerts = [a for a in alerts if a.pattern_type == "volume_spike"]
@@ -149,7 +149,7 @@ class TestPatternDetectorVolumeSpike:
 
         detector = PatternDetector(mock_database, sample_config)
 
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         volume_alerts = [a for a in alerts if a.pattern_type == "volume_spike"]
@@ -160,7 +160,11 @@ class TestPatternDetectorVolumeSpike:
     def test_skip_company_below_min_articles(self, mock_database, sample_config):
         """Test that companies below min article threshold are skipped."""
         mock_database.get_mention_counts.return_value = [
-            {"company_ticker": "AAPL", "company_name": "Apple", "count": 2}  # Below min_articles_for_alert
+            {
+                "company_ticker": "AAPL",
+                "company_name": "Apple",
+                "count": 2,
+            }  # Below min_articles_for_alert
         ]
 
         detector = PatternDetector(mock_database, sample_config)
@@ -172,7 +176,9 @@ class TestPatternDetectorVolumeSpike:
 class TestPatternDetectorSentimentShift:
     """Tests for sentiment shift detection."""
 
-    def test_positive_sentiment_shift(self, mock_database, sample_config, positive_articles, neutral_articles):
+    def test_positive_sentiment_shift(
+        self, mock_database, sample_config, positive_articles, neutral_articles
+    ):
         """Test detection of positive sentiment shift."""
         mock_database.get_mention_counts.return_value = [
             {"company_ticker": "AAPL", "company_name": "Apple", "count": 10}
@@ -189,12 +195,12 @@ class TestPatternDetectorSentimentShift:
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
             if exclude_hours > 0:
                 return neutral_articles  # Baseline
-            elif hours == sample_config['windows']['short']:
+            elif hours == sample_config["windows"]["short"]:
                 return []  # For negative cluster
             else:
                 return positive_articles  # Recent for sentiment
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         sentiment_alerts = [a for a in alerts if a.pattern_type == "sentiment_shift"]
@@ -202,7 +208,9 @@ class TestPatternDetectorSentimentShift:
         positive_shifts = [a for a in sentiment_alerts if a.details.get("direction") == "positive"]
         assert len(positive_shifts) >= 1
 
-    def test_negative_sentiment_shift(self, mock_database, sample_config, negative_articles, neutral_articles):
+    def test_negative_sentiment_shift(
+        self, mock_database, sample_config, negative_articles, neutral_articles
+    ):
         """Test detection of negative sentiment shift."""
         mock_database.get_mention_counts.return_value = [
             {"company_ticker": "AAPL", "company_name": "Apple", "count": 10}
@@ -217,12 +225,12 @@ class TestPatternDetectorSentimentShift:
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
             if exclude_hours > 0:
                 return neutral_articles  # Baseline
-            elif hours == sample_config['windows']['short']:
+            elif hours == sample_config["windows"]["short"]:
                 return negative_articles  # For negative cluster
             else:
                 return negative_articles  # Recent for sentiment
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         sentiment_alerts = [a for a in alerts if a.pattern_type == "sentiment_shift"]
@@ -244,17 +252,19 @@ class TestPatternDetectorSentimentShift:
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
             if exclude_hours > 0:
                 return []  # No baseline available
-            elif hours == sample_config['windows']['short']:
+            elif hours == sample_config["windows"]["short"]:
                 return negative_articles
             else:
                 return negative_articles
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         sentiment_alerts = [a for a in alerts if a.pattern_type == "sentiment_shift"]
         # Should still detect unusually negative coverage
-        negative_alerts = [a for a in sentiment_alerts if "negative" in a.details.get("direction", "")]
+        negative_alerts = [
+            a for a in sentiment_alerts if "negative" in a.details.get("direction", "")
+        ]
         assert len(negative_alerts) >= 1
 
     def test_not_enough_articles_for_sentiment(self, mock_database, sample_config):
@@ -275,12 +285,12 @@ class TestPatternDetectorSentimentShift:
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
             if exclude_hours > 0:
                 return []
-            elif hours == sample_config['windows']['short']:
+            elif hours == sample_config["windows"]["short"]:
                 return []
             else:
                 return few_articles
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         sentiment_alerts = [a for a in alerts if a.pattern_type == "sentiment_shift"]
@@ -310,7 +320,7 @@ class TestPatternDetectorMomentum:
 
         detector = PatternDetector(mock_database, sample_config)
 
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         momentum_alerts = [a for a in alerts if a.pattern_type == "momentum"]
@@ -332,7 +342,7 @@ class TestPatternDetectorMomentum:
 
         detector = PatternDetector(mock_database, sample_config)
 
-        with patch.object(detector, '_get_company_articles', return_value=[]):
+        with patch.object(detector, "_get_company_articles", return_value=[]):
             alerts = detector.detect_all_patterns()
 
         momentum_alerts = [a for a in alerts if a.pattern_type == "momentum"]
@@ -355,11 +365,11 @@ class TestPatternDetectorNegativeCluster:
         detector = PatternDetector(mock_database, sample_config)
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
-            if hours == sample_config['windows']['short']:
+            if hours == sample_config["windows"]["short"]:
                 return negative_articles  # For negative cluster
             return []  # Other calls
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         negative_cluster_alerts = [a for a in alerts if a.pattern_type == "negative_cluster"]
@@ -378,11 +388,11 @@ class TestPatternDetectorNegativeCluster:
         detector = PatternDetector(mock_database, sample_config)
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
-            if hours == sample_config['windows']['short']:
+            if hours == sample_config["windows"]["short"]:
                 return negative_articles
             return []
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         negative_cluster_alerts = [a for a in alerts if a.pattern_type == "negative_cluster"]
@@ -402,26 +412,30 @@ class TestPatternDetectorNegativeCluster:
         articles_with_keywords = [
             {"id": 1, "content": "Major investigation into company fraud leads to scandal."},
             {"id": 2, "content": "Stock crash after investigation reveals problems."},
-            {"id": 3, "content": "Layoffs announced amid investigation concerns."}
+            {"id": 3, "content": "Layoffs announced amid investigation concerns."},
         ]
 
         detector = PatternDetector(mock_database, sample_config)
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
-            if hours == sample_config['windows']['short']:
+            if hours == sample_config["windows"]["short"]:
                 return articles_with_keywords
             return []
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         negative_cluster_alerts = [a for a in alerts if a.pattern_type == "negative_cluster"]
         if negative_cluster_alerts:
             keywords = negative_cluster_alerts[0].details.get("keywords", [])
             # Should extract keywords like investigation, fraud, scandal, layoffs
-            assert any(kw in keywords for kw in ["investigation", "fraud", "scandal", "layoffs", "crash"])
+            assert any(
+                kw in keywords for kw in ["investigation", "fraud", "scandal", "layoffs", "crash"]
+            )
 
-    def test_no_negative_cluster_when_not_majority_negative(self, mock_database, sample_config, positive_articles):
+    def test_no_negative_cluster_when_not_majority_negative(
+        self, mock_database, sample_config, positive_articles
+    ):
         """Test no negative cluster when articles are mostly positive."""
         mock_database.get_mention_counts.return_value = [
             {"company_ticker": "AAPL", "company_name": "Apple", "count": 10}
@@ -434,11 +448,11 @@ class TestPatternDetectorNegativeCluster:
         detector = PatternDetector(mock_database, sample_config)
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
-            if hours == sample_config['windows']['short']:
+            if hours == sample_config["windows"]["short"]:
                 return positive_articles
             return []
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         negative_cluster_alerts = [a for a in alerts if a.pattern_type == "negative_cluster"]
@@ -460,11 +474,11 @@ class TestPatternDetectorNegativeCluster:
         detector = PatternDetector(mock_database, sample_config)
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
-            if hours == sample_config['windows']['short']:
+            if hours == sample_config["windows"]["short"]:
                 return single_article
             return []
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         negative_cluster_alerts = [a for a in alerts if a.pattern_type == "negative_cluster"]
@@ -478,10 +492,7 @@ class TestPatternDetectorConfiguration:
     def minimal_sentiment_config(self):
         """Minimal config with sentiment keywords to allow PatternDetector init."""
         return {
-            "sentiment_keywords": {
-                "positive": ["good", "growth"],
-                "negative": ["bad", "decline"]
-            }
+            "sentiment_keywords": {"positive": ["good", "growth"], "negative": ["bad", "decline"]}
         }
 
     def test_default_windows(self, mock_database, minimal_sentiment_config):
@@ -540,11 +551,13 @@ class TestPatternDetectorIntegration:
 
         assert len(alerts) == 0
 
-    def test_multiple_companies_multiple_alerts(self, mock_database, sample_config, negative_articles, positive_articles):
+    def test_multiple_companies_multiple_alerts(
+        self, mock_database, sample_config, negative_articles, positive_articles
+    ):
         """Test detection across multiple companies."""
         mock_database.get_mention_counts.return_value = [
             {"company_ticker": "AAPL", "company_name": "Apple", "count": 10},
-            {"company_ticker": "TSLA", "company_name": "Tesla", "count": 10}
+            {"company_ticker": "TSLA", "company_name": "Tesla", "count": 10},
         ]
 
         # Each company needs 10 calls: 3 volume + 7 momentum
@@ -565,13 +578,13 @@ class TestPatternDetectorIntegration:
 
         def get_articles_side_effect(ticker, hours, exclude_hours=0):
             call_count[0] += 1
-            if ticker == "AAPL" and hours == sample_config['windows']['short']:
+            if ticker == "AAPL" and hours == sample_config["windows"]["short"]:
                 return negative_articles
-            elif ticker == "TSLA" and hours == sample_config['windows']['short']:
+            elif ticker == "TSLA" and hours == sample_config["windows"]["short"]:
                 return positive_articles
             return []
 
-        with patch.object(detector, '_get_company_articles', side_effect=get_articles_side_effect):
+        with patch.object(detector, "_get_company_articles", side_effect=get_articles_side_effect):
             alerts = detector.detect_all_patterns()
 
         # Should have alerts for both companies

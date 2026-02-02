@@ -7,14 +7,14 @@ import sys
 import os
 
 # Add src to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from company_extractor import (
     CompanyExtractor,
     CompanyMatch,
     KeywordSentimentAnalyzer,
     SentimentAnalyzer,
-    VADER_AVAILABLE
+    VADER_AVAILABLE,
 )
 
 
@@ -182,10 +182,7 @@ class TestCompanyExtractor:
 
     def test_special_characters_in_company_names(self):
         """Test matching company names with special characters."""
-        watchlist = {
-            "AMZN": ["Amazon.com", "Amazon"],
-            "BRK.A": ["Berkshire Hathaway"]
-        }
+        watchlist = {"AMZN": ["Amazon.com", "Amazon"], "BRK.A": ["Berkshire Hathaway"]}
         extractor = CompanyExtractor(watchlist)
 
         text = "Amazon.com reported strong quarterly results."
@@ -324,7 +321,7 @@ class TestKeywordSentimentAnalyzer:
         texts = [
             "Strong growth and record profit.",
             "Major decline and significant loss.",
-            "The meeting was held on Tuesday."
+            "The meeting was held on Tuesday.",
         ]
 
         result = analyzer.analyze_batch(texts)
@@ -396,9 +393,7 @@ class TestSentimentAnalyzerUnified:
     def test_keyword_method_explicit(self, positive_keywords, negative_keywords):
         """Test SentimentAnalyzer with explicit keyword method."""
         analyzer = SentimentAnalyzer(
-            positive_words=positive_keywords,
-            negative_words=negative_keywords,
-            method='keyword'
+            positive_words=positive_keywords, negative_words=negative_keywords, method="keyword"
         )
 
         assert analyzer.active_method == "keyword"
@@ -410,12 +405,12 @@ class TestSentimentAnalyzerUnified:
     def test_keyword_method_requires_words(self):
         """Test that keyword method raises error without word lists."""
         with pytest.raises(ValueError):
-            SentimentAnalyzer(method='keyword')
+            SentimentAnalyzer(method="keyword")
 
     @pytest.mark.skipif(not VADER_AVAILABLE, reason="VADER not installed")
     def test_ml_method(self):
         """Test SentimentAnalyzer with ML (VADER) method."""
-        analyzer = SentimentAnalyzer(method='ml')
+        analyzer = SentimentAnalyzer(method="ml")
 
         assert analyzer.active_method == "ml"
 
@@ -431,9 +426,7 @@ class TestSentimentAnalyzerUnified:
     def test_auto_uses_ml_when_available(self, positive_keywords, negative_keywords):
         """Test that auto mode uses ML when VADER is available."""
         analyzer = SentimentAnalyzer(
-            positive_words=positive_keywords,
-            negative_words=negative_keywords,
-            method='auto'
+            positive_words=positive_keywords, negative_words=negative_keywords, method="auto"
         )
 
         # When VADER is available, auto should use ML
@@ -442,9 +435,7 @@ class TestSentimentAnalyzerUnified:
     def test_analyze_batch_unified(self, positive_keywords, negative_keywords):
         """Test batch analysis through unified analyzer."""
         analyzer = SentimentAnalyzer(
-            positive_words=positive_keywords,
-            negative_words=negative_keywords,
-            method='keyword'
+            positive_words=positive_keywords, negative_words=negative_keywords, method="keyword"
         )
 
         texts = ["Growth and profit.", "Decline and loss.", "Meeting today."]
@@ -458,9 +449,7 @@ class TestSentimentAnalyzerUnified:
     def test_analyze_detailed(self, positive_keywords, negative_keywords):
         """Test detailed analysis through unified analyzer."""
         analyzer = SentimentAnalyzer(
-            positive_words=positive_keywords,
-            negative_words=negative_keywords,
-            method='keyword'
+            positive_words=positive_keywords, negative_words=negative_keywords, method="keyword"
         )
 
         result = analyzer.analyze_detailed("Strong growth reported.")
@@ -473,9 +462,7 @@ class TestSentimentAnalyzerUnified:
     def test_word_list_properties(self, positive_keywords, negative_keywords):
         """Test backward compatibility word list properties."""
         analyzer = SentimentAnalyzer(
-            positive_words=positive_keywords,
-            negative_words=negative_keywords,
-            method='keyword'
+            positive_words=positive_keywords, negative_words=negative_keywords, method="keyword"
         )
 
         assert analyzer.positive_words == positive_keywords

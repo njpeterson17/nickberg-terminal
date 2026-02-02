@@ -10,13 +10,18 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response, g
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 
 from database import Database
 from alerts import AlertManager
+from logging_config import setup_logging, get_logger
+
+# Setup logging for web app
+setup_logging()
+logger = get_logger(__name__)
 
 app = Flask(__name__)
 
@@ -46,9 +51,17 @@ def require_api_key(f):
         provided_key = request.headers.get('X-API-Key') or request.args.get('api_key')
 
         if not provided_key:
+            logger.warning(
+                "API key required but not provided",
+                extra={'endpoint': request.endpoint, 'path': request.path}
+            )
             return jsonify({'error': 'API key required', 'message': 'Provide API key via X-API-Key header or api_key query parameter'}), 401
 
         if provided_key != API_KEY:
+            logger.warning(
+                "Invalid API key provided",
+                extra={'endpoint': request.endpoint, 'path': request.path}
+            )
             return jsonify({'error': 'Invalid API key'}), 403
 
         return f(*args, **kwargs)
@@ -63,6 +76,54 @@ with open(CONFIG_PATH) as f:
 # Initialize database (use absolute path from project root)
 DB_PATH = Path(__file__).parent.parent / config['database']['path']
 db = Database(str(DB_PATH))
+
+# Path to last scrape timestamp file
+LAST_SCRAPE_FILE = Path(__file__).parent.parent / 'data' / 'last_scrape.json'
+
+# Application version
+APP_VERSION = "1.0.0"
+
+
+# Request logging
+import time as _time
+
+@app.before_request
+def before_request():
+    """Log incoming requests and start timing"""
+    g.start_time = _time.time()
+
+
+@app.after_request
+def after_request(response):
+    """Log request completion with timing and status"""
+    # Skip logging for static files and health checks to reduce noise
+    if request.path.startswith('/static') or request.path == '/health':
+        return response
+
+    duration = _time.time() - getattr(g, 'start_time', _time.time())
+    logger.info(
+        "Request processed",
+        extra={
+            'method': request.method,
+            'path': request.path,
+            'status_code': response.status_code,
+            'duration_ms': round(duration * 1000, 2),
+            'remote_addr': request.remote_addr
+        }
+    )
+    return response
+
+
+def get_last_scrape_time():
+    """Get the timestamp of the last successful scrape"""
+    try:
+        if LAST_SCRAPE_FILE.exists():
+            with open(LAST_SCRAPE_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('last_scrape')
+    except (json.JSONDecodeError, IOError):
+        pass
+    return None
 
 
 # Helper functions
@@ -195,6 +256,112 @@ def get_source_distribution():
 def index():
     """Main dashboard"""
     return render_template('index.html')
+
+
+@app.route('/health')
+def health_check():
+    """
+    Health check endpoint for monitoring.
+    Returns 200 if healthy, 503 if unhealthy.
+    Does not require API key authentication.
+    """
+    components = {}
+    is_healthy = True
+
+    # Check database connectivity
+    try:
+        with db.get_connection() as conn:
+            conn.execute("SELECT 1").fetchone()
+        components['database'] = 'ok'
+    except Exception as e:
+        components['database'] = f'error: {str(e)}'
+        is_healthy = False
+
+    # Get last scrape time
+    last_scrape = get_last_scrape_time()
+    components['last_scrape'] = last_scrape
+
+    response_data = {
+        'status': 'healthy' if is_healthy else 'unhealthy',
+        'components': components,
+        'version': APP_VERSION
+    }
+
+    status_code = 200 if is_healthy else 503
+    return jsonify(response_data), status_code
+
+
+@app.route('/metrics')
+def metrics():
+    """
+    Prometheus-compatible metrics endpoint.
+    Returns metrics in text/plain format.
+    Does not require API key authentication.
+    """
+    metrics_lines = []
+
+    # Helper to add metric with optional help and type
+    def add_metric(name, value, help_text=None, metric_type=None):
+        if help_text:
+            metrics_lines.append(f'# HELP {name} {help_text}')
+        if metric_type:
+            metrics_lines.append(f'# TYPE {name} {metric_type}')
+        metrics_lines.append(f'{name} {value}')
+
+    try:
+        with db.get_connection() as conn:
+            # Total articles in database
+            total_articles = conn.execute(
+                "SELECT COUNT(*) as count FROM articles"
+            ).fetchone()['count']
+            add_metric(
+                'news_sentinel_articles_total',
+                total_articles,
+                'Total number of articles in the database',
+                'gauge'
+            )
+
+            # Total alerts generated
+            total_alerts = conn.execute(
+                "SELECT COUNT(*) as count FROM alerts"
+            ).fetchone()['count']
+            add_metric(
+                'news_sentinel_alerts_total',
+                total_alerts,
+                'Total number of alerts generated',
+                'gauge'
+            )
+
+            # Number of companies monitored (from config watchlist)
+            companies_count = len(config.get('companies', {}).get('watchlist', {}))
+            add_metric(
+                'news_sentinel_companies_monitored',
+                companies_count,
+                'Number of companies in the watchlist',
+                'gauge'
+            )
+
+    except Exception:
+        # If database fails, return what we can
+        pass
+
+    # Last scrape timestamp (as Unix timestamp)
+    last_scrape = get_last_scrape_time()
+    if last_scrape:
+        try:
+            # Parse ISO format and convert to Unix timestamp
+            dt = datetime.fromisoformat(last_scrape.replace('Z', '+00:00'))
+            unix_timestamp = dt.timestamp()
+            add_metric(
+                'news_sentinel_scrape_last_timestamp',
+                unix_timestamp,
+                'Unix timestamp of the last successful scrape',
+                'gauge'
+            )
+        except (ValueError, AttributeError):
+            pass
+
+    return Response('\n'.join(metrics_lines) + '\n', mimetype='text/plain')
 
 
 @app.route('/api/stats')
