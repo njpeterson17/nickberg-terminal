@@ -249,16 +249,24 @@ sources:
 patterns:
   # Volume spike threshold (articles in 24h vs 7-day average)
   volume_spike_threshold: 3.0
-  
+
   # Minimum articles to trigger alert
   min_articles_for_alert: 3
-  
+
   # Time windows (hours)
   windows:
     short: 6      # 6 hours
     medium: 24    # 24 hours
     long: 168     # 7 days
-  
+
+  # ML-based pattern detection (enhancement to rule-based detection)
+  # When enabled, runs alongside rule-based detection to boost/reduce confidence
+  ml_detection:
+    enabled: false  # Set to true to enable ML detection (requires scikit-learn)
+    model_path: data/ml_model.pkl  # Path to save/load trained models
+    min_training_articles: 100  # Minimum articles needed before training
+    anomaly_threshold: 0.7  # Threshold for anomaly detection (0-1, higher = stricter)
+
   # Sentiment analysis keywords
   sentiment_keywords:
     positive:
@@ -390,12 +398,59 @@ alerts:
     enabled: false
     url: "${NEWS_BOT_WEBHOOK_URL}"
 
+  # Alert aggregation - groups related alerts by company within a time window
+  # Instead of 5 separate AAPL alerts, creates one summary:
+  # "AAPL: 5 alerts (2 volume spikes, 2 sentiment shifts, 1 momentum)"
+  aggregation:
+    enabled: false
+    # Time window in minutes to group alerts for the same company
+    window_minutes: 30
+
+  # Priority-based routing - route alerts to different channels based on severity
+  # If not configured, all enabled channels receive all alerts (backwards compatible)
+  # Available channels: telegram, webhook, file, console
+  routing:
+    high_severity:
+      - telegram
+      - webhook
+      - file
+      - console
+    medium_severity:
+      - webhook
+      - file
+      - console
+    low_severity:
+      - file
+      - console
+
+  # Company-specific routing overrides
+  # Override routing for specific companies (takes precedence over severity routing)
+  # Example: Always send AAPL alerts to telegram, only send TSLA to file
+  company_overrides:
+    # AAPL:
+    #   channels: [telegram, webhook, file, console]
+    # TSLA:
+    #   channels: [telegram]
+    # NVDA:
+    #   channels: [file]
+
 # API Security
 # SECURITY: Set API key via environment variable NEWS_SENTINEL_API_KEY
 # If not set, API endpoints will be accessible without authentication (backwards compatible)
 api:
   require_auth: true  # Set to false to disable API authentication
   # API key is read from NEWS_SENTINEL_API_KEY environment variable
+
+# Market Data - Stock price integration for news-price correlation
+# Uses yfinance library (free, no API key required)
+market_data:
+  enabled: true
+  # Cache TTL in minutes - avoid repeated API calls
+  cache_ttl_minutes: 15
+  # Include market context in alerts (current price, day/week change)
+  include_in_alerts: true
+  # Threshold for "significant" price moves (used in correlation analysis)
+  significant_move_threshold: 2.0
 
 # Database
 database:

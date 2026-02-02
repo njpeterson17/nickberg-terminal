@@ -21,6 +21,8 @@ from company_extractor import CompanyExtractor
 from pattern_detector import PatternDetector
 from alerts import AlertManager
 from logging_config import setup_logging, get_logger
+from config_validator import validate_config
+from backtester import Backtester
 
 # Path to last scrape timestamp file
 LAST_SCRAPE_FILE = Path(__file__).parent.parent / "data" / "last_scrape.json"
@@ -46,6 +48,10 @@ class NewsSentinelBot:
 
         # Initialize components
         self.db = Database(self.config["database"]["path"])
+
+        # Merge database preferences with config file (database overrides config)
+        self._merge_database_preferences()
+
         self.scraper_manager = ScraperManager(config_path)
         self.company_extractor = CompanyExtractor(self.config["companies"]["watchlist"])
         self.pattern_detector = PatternDetector(self.db, self.config["patterns"])
@@ -57,6 +63,73 @@ class NewsSentinelBot:
         """Load configuration from YAML"""
         with open(self.config_path) as f:
             return yaml.safe_load(f)
+
+    def _merge_database_preferences(self):
+        """
+        Merge database preferences with config file settings.
+
+        Database preferences override config file settings to allow runtime
+        configuration changes via the web UI without modifying the config file.
+        """
+        try:
+            # Get all preferences from database
+            db_prefs = self.db.get_all_preferences()
+
+            if not db_prefs:
+                return  # No database preferences, use config file as-is
+
+            # Merge watchlist (database overrides config)
+            db_watchlist = db_prefs.get("watchlist")
+            if db_watchlist and isinstance(db_watchlist, dict):
+                self.config["companies"]["watchlist"] = db_watchlist
+
+            # Merge thresholds into patterns config
+            db_thresholds = db_prefs.get("thresholds")
+            if db_thresholds and isinstance(db_thresholds, dict):
+                if "volume_spike" in db_thresholds:
+                    self.config["patterns"]["volume_spike_threshold"] = db_thresholds[
+                        "volume_spike"
+                    ]
+                if "min_articles" in db_thresholds:
+                    self.config["patterns"]["min_articles_for_alert"] = db_thresholds[
+                        "min_articles"
+                    ]
+                if "sentiment_shift" in db_thresholds:
+                    self.config["patterns"]["sentiment_shift_threshold"] = db_thresholds[
+                        "sentiment_shift"
+                    ]
+
+            # Merge alert channel settings
+            db_channels = db_prefs.get("alert_channels")
+            if db_channels and isinstance(db_channels, dict):
+                if "telegram" in db_channels:
+                    if "telegram" not in self.config["alerts"]:
+                        self.config["alerts"]["telegram"] = {}
+                    self.config["alerts"]["telegram"]["enabled"] = db_channels["telegram"]
+                if "webhook" in db_channels:
+                    if "webhook" not in self.config["alerts"]:
+                        self.config["alerts"]["webhook"] = {}
+                    self.config["alerts"]["webhook"]["enabled"] = db_channels["webhook"]
+                if "file" in db_channels:
+                    if "file" not in self.config["alerts"]:
+                        self.config["alerts"]["file"] = {}
+                    self.config["alerts"]["file"]["enabled"] = db_channels["file"]
+                if "console" in db_channels:
+                    self.config["alerts"]["console"] = db_channels["console"]
+
+            # Store severity routing and company preferences in config for alert manager
+            db_routing = db_prefs.get("severity_routing")
+            if db_routing:
+                self.config["alerts"]["severity_routing"] = db_routing
+
+            db_company_prefs = db_prefs.get("company_preferences")
+            if db_company_prefs:
+                self.config["alerts"]["company_preferences"] = db_company_prefs
+
+        except Exception as e:
+            # Log but don't fail - use config file values if database fails
+            logger = get_logger(__name__)
+            logger.warning("Failed to merge database preferences", extra={"error": str(e)})
 
     def run(self, dry_run: bool = False):
         """Run one cycle of the bot"""
@@ -227,12 +300,67 @@ class NewsSentinelBot:
         print("Alerts cleared")
 
 
+def run_backtest(args, bot: NewsSentinelBot):
+    """Run backtesting with the provided arguments."""
+    logger = get_logger(__name__)
+
+    # Parse dates
+    try:
+        start_date = datetime.strptime(args.start, "%Y-%m-%d")
+        end_date = datetime.strptime(args.end, "%Y-%m-%d")
+    except ValueError as e:
+        print(f"Error: Invalid date format. Use YYYY-MM-DD. ({e})")
+        sys.exit(1)
+
+    if start_date > end_date:
+        print("Error: Start date must be before end date.")
+        sys.exit(1)
+
+    # Create backtester
+    backtester = Backtester(bot.db, bot.config)
+
+    print(f"\nRunning backtest from {args.start} to {args.end}...")
+    print(f"Interval: {args.interval} hours\n")
+
+    # Run backtest
+    report = backtester.run(
+        start_date=start_date,
+        end_date=end_date,
+        interval_hours=args.interval,
+    )
+
+    # Print summary
+    backtester.print_summary()
+
+    # Export results if output path provided
+    if args.output:
+        # Determine format from file extension if not explicitly set
+        output_format = args.format
+        if args.output.endswith(".csv"):
+            output_format = "csv"
+        elif args.output.endswith(".json"):
+            output_format = "json"
+
+        if backtester.export_results(args.output, format=output_format):
+            print(f"Results exported to: {args.output}")
+        else:
+            print(f"Failed to export results to: {args.output}")
+            sys.exit(1)
+    else:
+        # Print JSON to stdout if no output file
+        print("\nFull report (JSON):")
+        print(json.dumps(backtester.generate_report(), indent=2))
+
+
 def main():
     parser = argparse.ArgumentParser(description="News Sentinel Bot")
     parser.add_argument(
         "-c", "--config", default="config/settings.yaml", help="Path to config file"
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
+    parser.add_argument(
+        "--skip-validation", action="store_true", help="Skip configuration validation"
+    )
 
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
@@ -257,14 +385,66 @@ def main():
     # Reset command
     subparsers.add_parser("reset-alerts", help="Clear all alerts")
 
+    # Validate command
+    subparsers.add_parser("validate", help="Validate configuration file")
+
+    # Backtest command
+    backtest_parser = subparsers.add_parser("backtest", help="Run backtesting on historical data")
+    backtest_parser.add_argument(
+        "--start",
+        required=True,
+        help="Start date for backtest (YYYY-MM-DD)",
+    )
+    backtest_parser.add_argument(
+        "--end",
+        required=True,
+        help="End date for backtest (YYYY-MM-DD)",
+    )
+    backtest_parser.add_argument(
+        "--output",
+        "-o",
+        help="Output file path for results (JSON or CSV based on extension)",
+    )
+    backtest_parser.add_argument(
+        "--interval",
+        type=int,
+        default=6,
+        help="Interval in hours between pattern detection checks (default: 6)",
+    )
+    backtest_parser.add_argument(
+        "--format",
+        choices=["json", "csv"],
+        default="json",
+        help="Output format (default: json)",
+    )
+
     args = parser.parse_args()
 
     # Setup logging
     setup_logging(verbose=args.verbose)
+    logger = get_logger(__name__)
 
     # Change to bot directory
     bot_dir = Path(__file__).parent.parent
     os.chdir(bot_dir)
+
+    # Handle validate command separately (before creating bot)
+    if args.command == "validate":
+        result = validate_config(args.config)
+        if result.is_valid:
+            print(f"Configuration file '{args.config}' is valid.")
+            sys.exit(0)
+        else:
+            print(result, file=sys.stderr)
+            sys.exit(1)
+
+    # Validate configuration on startup (unless skipped)
+    if not args.skip_validation:
+        result = validate_config(args.config)
+        if not result.is_valid:
+            print(result, file=sys.stderr)
+            sys.exit(1)
+        logger.info("Configuration validation passed", extra={"config_path": args.config})
 
     # Create bot instance
     bot = NewsSentinelBot(args.config)
@@ -282,6 +462,8 @@ def main():
         bot.run()
     elif args.command == "reset-alerts":
         bot.reset_alerts()
+    elif args.command == "backtest":
+        run_backtest(args, bot)
     else:
         parser.print_help()
 

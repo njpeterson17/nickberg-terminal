@@ -7,11 +7,25 @@ let mainChart = null;
 let sentimentChart = null;
 let currentChartType = 'mentions';
 
+// Settings state
+let settingsState = {
+    watchlist: {},
+    alert_channels: {},
+    severity_routing: {},
+    thresholds: {},
+    company_preferences: {},
+    isDirty: false
+};
+
+// Debounce timer for auto-save
+let saveDebounceTimer = null;
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
     setupEventListeners();
-    
+    setupSettingsEventListeners();
+
     // Auto-refresh every 60 seconds
     setInterval(refreshData, 60000);
 });
@@ -513,19 +527,481 @@ function showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    
+
     const icons = {
         success: 'fa-check-circle',
         error: 'fa-exclamation-circle',
         info: 'fa-info-circle'
     };
-    
+
     toast.innerHTML = `<i class="fas ${icons[type]}"></i> ${message}`;
     container.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(100%)';
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// =============================================================================
+// Settings Functions
+// =============================================================================
+
+function setupSettingsEventListeners() {
+    // Tab navigation
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const tabId = e.currentTarget.dataset.tab;
+            switchTab(tabId);
+        });
+    });
+
+    // Add ticker button
+    const addTickerBtn = document.getElementById('addTickerBtn');
+    if (addTickerBtn) {
+        addTickerBtn.addEventListener('click', addTickerToWatchlist);
+    }
+
+    // Enter key on ticker input
+    const tickerInput = document.getElementById('tickerInput');
+    if (tickerInput) {
+        tickerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTickerToWatchlist();
+            }
+        });
+    }
+
+    // Alert channel toggles
+    ['Console', 'File', 'Telegram', 'Webhook'].forEach(channel => {
+        const toggle = document.getElementById(`channel${channel}`);
+        if (toggle) {
+            toggle.addEventListener('change', () => {
+                updateAlertChannels();
+                markSettingsDirty();
+            });
+        }
+    });
+
+    // Routing checkboxes
+    document.querySelectorAll('.routing-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+            updateSeverityRouting();
+            markSettingsDirty();
+        });
+    });
+
+    // Threshold sliders
+    const volumeThreshold = document.getElementById('volumeThreshold');
+    if (volumeThreshold) {
+        volumeThreshold.addEventListener('input', () => {
+            document.getElementById('volumeThresholdValue').textContent = volumeThreshold.value + 'x';
+            markSettingsDirty();
+        });
+    }
+
+    const sentimentThreshold = document.getElementById('sentimentThreshold');
+    if (sentimentThreshold) {
+        sentimentThreshold.addEventListener('input', () => {
+            document.getElementById('sentimentThresholdValue').textContent = sentimentThreshold.value;
+            markSettingsDirty();
+        });
+    }
+
+    const minArticles = document.getElementById('minArticles');
+    if (minArticles) {
+        minArticles.addEventListener('change', () => {
+            markSettingsDirty();
+        });
+    }
+
+    // Save settings button
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveAllSettings);
+    }
+}
+
+function switchTab(tabId) {
+    // Update tab buttons
+    document.querySelectorAll('.nav-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.tab === tabId);
+    });
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    const targetTab = document.getElementById(`${tabId}Tab`);
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
+
+    // Load settings when switching to settings tab
+    if (tabId === 'settings') {
+        loadSettings();
+    }
+}
+
+async function loadSettings() {
+    try {
+        showStatus('loading');
+
+        // Load all settings in parallel
+        const [prefsResponse, watchlistResponse, rulesResponse] = await Promise.all([
+            fetch('/api/preferences'),
+            fetch('/api/watchlist'),
+            fetch('/api/alert-rules')
+        ]);
+
+        const preferences = await prefsResponse.json();
+        const watchlist = await watchlistResponse.json();
+        const rules = await rulesResponse.json();
+
+        // Store in state
+        settingsState.watchlist = watchlist;
+        settingsState.alert_channels = rules.alert_channels || {};
+        settingsState.severity_routing = rules.severity_routing || {};
+        settingsState.thresholds = preferences.thresholds || {};
+        settingsState.company_preferences = rules.company_preferences || {};
+        settingsState.isDirty = false;
+
+        // Populate UI
+        renderWatchlistTags();
+        populateAlertChannels();
+        populateSeverityRouting();
+        populateThresholds();
+        renderCompanyPreferences();
+
+        showStatus('ready');
+    } catch (error) {
+        console.error('Error loading settings:', error);
+        showToast('Error loading settings', 'error');
+        showStatus('error');
+    }
+}
+
+function renderWatchlistTags() {
+    const container = document.getElementById('watchlistTags');
+    if (!container) return;
+
+    const watchlist = settingsState.watchlist || {};
+    const tickers = Object.keys(watchlist);
+
+    if (tickers.length === 0) {
+        container.innerHTML = '<span class="setting-label-hint">No companies in watchlist</span>';
+        return;
+    }
+
+    container.innerHTML = tickers.map(ticker => `
+        <span class="tag" data-ticker="${ticker}">
+            <strong>${ticker}</strong>
+            <span style="opacity: 0.8; font-size: 11px;">(${(watchlist[ticker] || []).slice(0, 2).join(', ')}${watchlist[ticker]?.length > 2 ? '...' : ''})</span>
+            <button class="tag-remove" onclick="removeTickerFromWatchlist('${ticker}')" title="Remove">
+                <i class="fas fa-times"></i>
+            </button>
+        </span>
+    `).join('');
+}
+
+async function addTickerToWatchlist() {
+    const tickerInput = document.getElementById('tickerInput');
+    const namesInput = document.getElementById('namesInput');
+
+    const ticker = tickerInput.value.toUpperCase().trim();
+    const namesStr = namesInput.value.trim();
+
+    if (!ticker) {
+        showToast('Please enter a ticker symbol', 'error');
+        tickerInput.focus();
+        return;
+    }
+
+    if (!namesStr) {
+        showToast('Please enter at least one company name', 'error');
+        namesInput.focus();
+        return;
+    }
+
+    const names = namesStr.split(',').map(n => n.trim()).filter(n => n);
+
+    if (names.length === 0) {
+        showToast('Please enter valid company names', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'add', ticker, names })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            settingsState.watchlist = result.watchlist;
+            renderWatchlistTags();
+            renderCompanyPreferences();
+            tickerInput.value = '';
+            namesInput.value = '';
+            showToast(`Added ${ticker} to watchlist`, 'success');
+        } else {
+            showToast(result.error || 'Failed to add ticker', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding ticker:', error);
+        showToast('Failed to add ticker', 'error');
+    }
+}
+
+async function removeTickerFromWatchlist(ticker) {
+    if (!confirm(`Remove ${ticker} from watchlist?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'remove', ticker })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            settingsState.watchlist = result.watchlist;
+            renderWatchlistTags();
+            renderCompanyPreferences();
+            showToast(`Removed ${ticker} from watchlist`, 'success');
+        } else {
+            showToast(result.error || 'Failed to remove ticker', 'error');
+        }
+    } catch (error) {
+        console.error('Error removing ticker:', error);
+        showToast('Failed to remove ticker', 'error');
+    }
+}
+
+function populateAlertChannels() {
+    const channels = settingsState.alert_channels || {};
+
+    document.getElementById('channelConsole').checked = channels.console !== false;
+    document.getElementById('channelFile').checked = channels.file !== false;
+    document.getElementById('channelTelegram').checked = channels.telegram === true;
+    document.getElementById('channelWebhook').checked = channels.webhook === true;
+}
+
+function updateAlertChannels() {
+    settingsState.alert_channels = {
+        console: document.getElementById('channelConsole').checked,
+        file: document.getElementById('channelFile').checked,
+        telegram: document.getElementById('channelTelegram').checked,
+        webhook: document.getElementById('channelWebhook').checked
+    };
+}
+
+function populateSeverityRouting() {
+    const routing = settingsState.severity_routing || {};
+
+    ['high', 'medium', 'low'].forEach(severity => {
+        const channels = routing[severity] || [];
+        ['console', 'file', 'telegram', 'webhook'].forEach(channel => {
+            const checkbox = document.querySelector(
+                `.routing-checkbox[data-severity="${severity}"][data-channel="${channel}"]`
+            );
+            if (checkbox) {
+                checkbox.checked = channels.includes(channel);
+            }
+        });
+    });
+}
+
+function updateSeverityRouting() {
+    const routing = {};
+
+    ['high', 'medium', 'low'].forEach(severity => {
+        routing[severity] = [];
+        ['console', 'file', 'telegram', 'webhook'].forEach(channel => {
+            const checkbox = document.querySelector(
+                `.routing-checkbox[data-severity="${severity}"][data-channel="${channel}"]`
+            );
+            if (checkbox && checkbox.checked) {
+                routing[severity].push(channel);
+            }
+        });
+    });
+
+    settingsState.severity_routing = routing;
+}
+
+function populateThresholds() {
+    const thresholds = settingsState.thresholds || {};
+
+    const volumeSlider = document.getElementById('volumeThreshold');
+    if (volumeSlider) {
+        volumeSlider.value = thresholds.volume_spike || 3.0;
+        document.getElementById('volumeThresholdValue').textContent = volumeSlider.value + 'x';
+    }
+
+    const minArticlesInput = document.getElementById('minArticles');
+    if (minArticlesInput) {
+        minArticlesInput.value = thresholds.min_articles || 3;
+    }
+
+    const sentimentSlider = document.getElementById('sentimentThreshold');
+    if (sentimentSlider) {
+        sentimentSlider.value = thresholds.sentiment_shift || 0.3;
+        document.getElementById('sentimentThresholdValue').textContent = sentimentSlider.value;
+    }
+}
+
+function renderCompanyPreferences() {
+    const container = document.getElementById('companyPreferences');
+    const emptyState = document.getElementById('noCompanyPrefs');
+    if (!container) return;
+
+    const watchlist = settingsState.watchlist || {};
+    const prefs = settingsState.company_preferences || {};
+    const tickers = Object.keys(watchlist);
+
+    if (tickers.length === 0) {
+        container.innerHTML = '';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    if (emptyState) emptyState.style.display = 'none';
+
+    container.innerHTML = tickers.slice(0, 10).map(ticker => {
+        const names = watchlist[ticker] || [];
+        const companyPref = prefs[ticker] || {};
+
+        return `
+            <div class="company-pref-item">
+                <div class="company-pref-header">
+                    <div>
+                        <span class="company-pref-ticker">${ticker}</span>
+                        <span class="company-pref-name">${names[0] || ''}</span>
+                    </div>
+                </div>
+                <div class="company-pref-controls">
+                    <div class="company-pref-control">
+                        <input type="checkbox" id="mute_${ticker}" ${companyPref.muted ? 'checked' : ''}
+                               onchange="updateCompanyPref('${ticker}', 'muted', this.checked)">
+                        <label for="mute_${ticker}">Mute alerts</label>
+                    </div>
+                    <div class="company-pref-control">
+                        <label for="priority_${ticker}">Priority:</label>
+                        <select id="priority_${ticker}" onchange="updateCompanyPref('${ticker}', 'priority', this.value)">
+                            <option value="normal" ${companyPref.priority !== 'high' && companyPref.priority !== 'low' ? 'selected' : ''}>Normal</option>
+                            <option value="high" ${companyPref.priority === 'high' ? 'selected' : ''}>High</option>
+                            <option value="low" ${companyPref.priority === 'low' ? 'selected' : ''}>Low</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    if (tickers.length > 10) {
+        container.innerHTML += `
+            <div class="company-pref-item" style="text-align: center; color: var(--text-secondary);">
+                <i class="fas fa-info-circle"></i> Showing first 10 companies. ${tickers.length - 10} more in watchlist.
+            </div>
+        `;
+    }
+}
+
+function updateCompanyPref(ticker, key, value) {
+    if (!settingsState.company_preferences[ticker]) {
+        settingsState.company_preferences[ticker] = {};
+    }
+    settingsState.company_preferences[ticker][key] = value;
+    markSettingsDirty();
+}
+
+function markSettingsDirty() {
+    settingsState.isDirty = true;
+
+    const saveBtn = document.getElementById('saveSettingsBtn');
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings *';
+    }
+
+    // Debounced auto-save (optional - can be enabled)
+    // clearTimeout(saveDebounceTimer);
+    // saveDebounceTimer = setTimeout(saveAllSettings, 2000);
+}
+
+async function saveAllSettings() {
+    const saveBtn = document.getElementById('saveSettingsBtn');
+
+    try {
+        saveBtn.disabled = true;
+        saveBtn.classList.add('saving');
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+        // Collect all settings from UI
+        updateAlertChannels();
+        updateSeverityRouting();
+
+        const thresholds = {
+            volume_spike: parseFloat(document.getElementById('volumeThreshold').value),
+            min_articles: parseInt(document.getElementById('minArticles').value),
+            sentiment_shift: parseFloat(document.getElementById('sentimentThreshold').value)
+        };
+
+        // Save preferences
+        const prefsResponse = await fetch('/api/preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                thresholds: thresholds
+            })
+        });
+
+        // Save alert rules
+        const rulesResponse = await fetch('/api/alert-rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                alert_channels: settingsState.alert_channels,
+                severity_routing: settingsState.severity_routing,
+                company_preferences: settingsState.company_preferences
+            })
+        });
+
+        const prefsResult = await prefsResponse.json();
+        const rulesResult = await rulesResponse.json();
+
+        if (prefsResult.success !== false && rulesResult.success !== false) {
+            settingsState.isDirty = false;
+            saveBtn.classList.remove('saving');
+            saveBtn.classList.add('saved');
+            saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved!';
+            showToast('Settings saved successfully', 'success');
+
+            setTimeout(() => {
+                saveBtn.classList.remove('saved');
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings';
+            }, 2000);
+        } else {
+            const errors = [...(prefsResult.errors || []), ...(rulesResult.errors || [])];
+            throw new Error(errors.join(', ') || 'Save failed');
+        }
+    } catch (error) {
+        console.error('Error saving settings:', error);
+        saveBtn.classList.remove('saving');
+        saveBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
+        showToast('Error saving settings: ' + error.message, 'error');
+
+        setTimeout(() => {
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings *';
+        }, 2000);
+    } finally {
+        saveBtn.disabled = false;
+    }
 }

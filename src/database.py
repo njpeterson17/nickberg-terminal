@@ -259,6 +259,15 @@ class Database:
                 )
             """)
 
+            # User preferences table (for runtime configuration)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             # Indexes for performance (excluding content_hash which is created after migration)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_source ON articles(source)")
             conn.execute(
@@ -681,3 +690,100 @@ class Database:
                 "total_alerts": total_alerts,
                 "articles_24h": articles_24h,
             }
+
+    def save_preference(self, key: str, value: Any) -> bool:
+        """
+        Save a user preference (JSON encoded).
+
+        Args:
+            key: The preference key
+            value: The preference value (will be JSON encoded)
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            json_value = json.dumps(value)
+            with self.get_connection() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO user_preferences (key, value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value = excluded.value,
+                        updated_at = CURRENT_TIMESTAMP
+                    """,
+                    (key, json_value),
+                )
+                conn.commit()
+                logger.debug("Saved preference", extra={"key": key})
+                return True
+        except (sqlite3.Error, json.JSONDecodeError) as e:
+            logger.error("Error saving preference", extra={"key": key, "error": str(e)})
+            return False
+
+    def get_preference(self, key: str, default: Any = None) -> Any:
+        """
+        Get a user preference (JSON decoded).
+
+        Args:
+            key: The preference key
+            default: Default value if key doesn't exist
+
+        Returns:
+            The preference value or default
+        """
+        try:
+            with self.get_connection() as conn:
+                row = conn.execute(
+                    "SELECT value FROM user_preferences WHERE key = ?", (key,)
+                ).fetchone()
+
+                if row and row["value"]:
+                    return json.loads(row["value"])
+                return default
+        except (sqlite3.Error, json.JSONDecodeError) as e:
+            logger.error("Error getting preference", extra={"key": key, "error": str(e)})
+            return default
+
+    def get_all_preferences(self) -> dict[str, Any]:
+        """
+        Get all user preferences.
+
+        Returns:
+            Dictionary of all preferences (key -> value)
+        """
+        try:
+            with self.get_connection() as conn:
+                rows = conn.execute("SELECT key, value FROM user_preferences").fetchall()
+
+                result = {}
+                for row in rows:
+                    try:
+                        result[row["key"]] = json.loads(row["value"]) if row["value"] else None
+                    except json.JSONDecodeError:
+                        result[row["key"]] = row["value"]
+                return result
+        except sqlite3.Error as e:
+            logger.error("Error getting all preferences", extra={"error": str(e)})
+            return {}
+
+    def delete_preference(self, key: str) -> bool:
+        """
+        Delete a user preference.
+
+        Args:
+            key: The preference key to delete
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with self.get_connection() as conn:
+                conn.execute("DELETE FROM user_preferences WHERE key = ?", (key,))
+                conn.commit()
+                logger.debug("Deleted preference", extra={"key": key})
+                return True
+        except sqlite3.Error as e:
+            logger.error("Error deleting preference", extra={"key": key, "error": str(e)})
+            return False

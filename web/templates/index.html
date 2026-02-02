@@ -26,6 +26,19 @@
             </div>
         </header>
 
+        <!-- Navigation Tabs -->
+        <nav class="nav-tabs">
+            <button class="nav-tab active" data-tab="dashboard">
+                <i class="fas fa-chart-line"></i> Dashboard
+            </button>
+            <button class="nav-tab" data-tab="settings">
+                <i class="fas fa-cog"></i> Settings
+            </button>
+        </nav>
+
+        <!-- Dashboard Tab Content -->
+        <div id="dashboardTab" class="tab-content active">
+
         <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
@@ -149,6 +162,196 @@
                 <i class="fas fa-circle"></i> Ready
             </span>
         </div>
+
+        </div> <!-- End Dashboard Tab -->
+
+        <!-- Settings Tab Content -->
+        <div id="settingsTab" class="tab-content">
+            <div class="settings-container">
+
+                <!-- Watchlist Management -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3><i class="fas fa-list"></i> Watchlist Management</h3>
+                    </div>
+                    <div class="settings-section-body">
+                        <p class="setting-label-hint" style="margin-bottom: 16px;">
+                            Add or remove companies from your monitoring watchlist.
+                        </p>
+                        <div class="tag-input-container">
+                            <div id="watchlistTags" class="tag-list">
+                                <!-- Tags will be populated dynamically -->
+                            </div>
+                            <div class="tag-add-form">
+                                <input type="text" id="tickerInput" placeholder="Ticker (e.g., AAPL)" maxlength="5">
+                                <input type="text" id="namesInput" placeholder="Names (comma-separated, e.g., Apple, Apple Inc)">
+                                <button type="button" class="btn btn-primary" id="addTickerBtn">
+                                    <i class="fas fa-plus"></i> Add
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Channels -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3><i class="fas fa-bell"></i> Alert Channels</h3>
+                    </div>
+                    <div class="settings-section-body">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Console Output</span>
+                                <span class="setting-label-hint">Display alerts in terminal</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="channelConsole" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">File Logging</span>
+                                <span class="setting-label-hint">Save alerts to log file</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="channelFile" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Telegram Notifications</span>
+                                <span class="setting-label-hint">Send alerts via Telegram bot</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="channelTelegram">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Webhook</span>
+                                <span class="setting-label-hint">POST alerts to external webhook</span>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="channelWebhook">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Severity Routing -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3><i class="fas fa-route"></i> Severity Routing</h3>
+                    </div>
+                    <div class="settings-section-body">
+                        <p class="setting-label-hint" style="margin-bottom: 16px;">
+                            Configure which channels receive alerts for each severity level.
+                        </p>
+                        <table class="routing-table">
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Console</th>
+                                    <th>File</th>
+                                    <th>Telegram</th>
+                                    <th>Webhook</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="severity-label high"><i class="fas fa-exclamation-circle"></i> High</span></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="high" data-channel="console" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="high" data-channel="file" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="high" data-channel="telegram" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="high" data-channel="webhook" checked></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="severity-label medium"><i class="fas fa-exclamation-triangle"></i> Medium</span></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="medium" data-channel="console" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="medium" data-channel="file" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="medium" data-channel="telegram"></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="medium" data-channel="webhook"></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="severity-label low"><i class="fas fa-info-circle"></i> Low</span></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="low" data-channel="console"></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="low" data-channel="file" checked></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="low" data-channel="telegram"></td>
+                                    <td><input type="checkbox" class="routing-checkbox" data-severity="low" data-channel="webhook"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Pattern Thresholds -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3><i class="fas fa-sliders-h"></i> Pattern Thresholds</h3>
+                    </div>
+                    <div class="settings-section-body">
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Volume Spike Threshold</span>
+                                <span class="setting-label-hint">Multiplier vs 7-day average to trigger alert</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider-input" id="volumeThreshold" min="1" max="10" step="0.5" value="3">
+                                <span class="slider-value" id="volumeThresholdValue">3.0x</span>
+                            </div>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Minimum Articles</span>
+                                <span class="setting-label-hint">Minimum articles required to trigger alert</span>
+                            </div>
+                            <input type="number" class="number-input" id="minArticles" min="1" max="50" value="3">
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-label">
+                                <span class="setting-label-text">Sentiment Shift Threshold</span>
+                                <span class="setting-label-hint">Minimum sentiment change to trigger alert</span>
+                            </div>
+                            <div class="slider-container">
+                                <input type="range" class="slider-input" id="sentimentThreshold" min="0.1" max="1" step="0.1" value="0.3">
+                                <span class="slider-value" id="sentimentThresholdValue">0.3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Per-Company Preferences -->
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <h3><i class="fas fa-building"></i> Per-Company Preferences</h3>
+                    </div>
+                    <div class="settings-section-body">
+                        <p class="setting-label-hint" style="margin-bottom: 16px;">
+                            Configure alert settings for specific companies. Leave empty to use default settings.
+                        </p>
+                        <div id="companyPreferences" class="settings-grid">
+                            <!-- Company preference cards will be populated dynamically -->
+                        </div>
+                        <div id="noCompanyPrefs" class="empty-state" style="padding: 20px;">
+                            <p>Add companies to the watchlist to configure per-company preferences.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="save-btn-container">
+                    <button type="button" class="btn-save" id="saveSettingsBtn">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
+                </div>
+
+            </div>
+        </div> <!-- End Settings Tab -->
+
     </div>
 
     <!-- Toast Notifications -->
