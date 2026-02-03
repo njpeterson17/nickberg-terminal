@@ -36,3 +36,8 @@ htmlcov/
 
 # Docker
 .docker/
+
+# Log files
+*.log
+web-server.log
+web_server.log
