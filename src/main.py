@@ -300,7 +300,7 @@ class NickbergTerminal:
         print("Alerts cleared")
 
 
-def run_backtest(args, bot: NewsSentinelBot):
+def run_backtest(args, bot: NickbergTerminal):
     """Run backtesting with the provided arguments."""
     logger = get_logger(__name__)
 
@@ -447,7 +447,7 @@ def main():
         logger.info("Configuration validation passed", extra={"config_path": args.config})
 
     # Create bot instance
-    bot = NewsSentinelBot(args.config)
+    bot = NickbergTerminal(args.config)
 
     # Execute command
     if args.command == "run":

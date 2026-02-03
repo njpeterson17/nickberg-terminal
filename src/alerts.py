@@ -253,8 +253,8 @@ class AlertManager:
         )
 
         # Routing configuration
-        self.routing_config = config.get("routing", {})
-        self.company_overrides = config.get("company_overrides", {})
+        self.routing_config = config.get("routing", {}) or {}
+        self.company_overrides = config.get("company_overrides", {}) or {}
 
         # Alert aggregator
         self.aggregator = AlertAggregator(config)
