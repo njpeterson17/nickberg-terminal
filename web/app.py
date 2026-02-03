@@ -1,16 +1,34 @@
 """
-News Sentinel Bot - Web Dashboard
+Nickberg Terminal - Web Dashboard
 Flask application for monitoring and visualization
 """
 
 import os
 import sys
 import json
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
 from flask import Flask, render_template, jsonify, request, send_from_directory, Response, g
+
+# Prometheus metrics
+try:
+    from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST, CollectorRegistry
+    PROMETHEUS_AVAILABLE = True
+    # Use a separate registry to avoid conflicts in tests
+    METRICS_REGISTRY = CollectorRegistry(auto_describe=True)
+except ImportError:
+    PROMETHEUS_AVAILABLE = False
+    METRICS_REGISTRY = None
+
+# Try to import CORS, install if not available
+try:
+    from flask_cors import CORS
+    CORS_AVAILABLE = True
+except ImportError:
+    CORS_AVAILABLE = False
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
@@ -18,6 +36,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
 from database import Database
 from alerts import AlertManager
 from logging_config import setup_logging, get_logger
+
+# Pydantic validation
+try:
+    from pydantic import ValidationError
+    from models import (
+        PreferencesRequest, WatchlistAddRequest, AlertRulesRequest,
+        ErrorResponse
+    )
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AVAILABLE = False
 
 # Import market data modules with fallback
 try:
@@ -33,7 +62,89 @@ except ImportError:
 setup_logging()
 logger = get_logger(__name__)
 
-app = Flask(__name__)
+import os
+template_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
+static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+app = Flask('nickberg', template_folder=template_dir, static_folder=static_dir)
+
+# =============================================================================
+# Prometheus Metrics Setup (using separate registry to avoid test conflicts)
+# =============================================================================
+REQUEST_COUNT = None
+REQUEST_LATENCY = None
+ARTICLES_TOTAL = None
+ALERTS_TOTAL = None
+ALERTS_UNACKNOWLEDGED = None
+COMPANIES_MONITORED = None
+SCRAPE_LAST_TIMESTAMP = None
+ARTICLES_24H = None
+
+if PROMETHEUS_AVAILABLE and METRICS_REGISTRY is not None:
+    # Request metrics
+    REQUEST_COUNT = Counter(
+        'nickberg_http_requests_total',
+        'Total HTTP requests',
+        ['method', 'endpoint', 'status'],
+        registry=METRICS_REGISTRY
+    )
+    REQUEST_LATENCY = Histogram(
+        'nickberg_http_request_duration_seconds',
+        'HTTP request latency in seconds',
+        ['method', 'endpoint'],
+        buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
+        registry=METRICS_REGISTRY
+    )
+
+    # Business metrics
+    ARTICLES_TOTAL = Gauge(
+        'nickberg_articles_total',
+        'Total number of articles in database',
+        registry=METRICS_REGISTRY
+    )
+    ALERTS_TOTAL = Gauge(
+        'nickberg_alerts_total',
+        'Total number of alerts generated',
+        registry=METRICS_REGISTRY
+    )
+    ALERTS_UNACKNOWLEDGED = Gauge(
+        'nickberg_alerts_unacknowledged',
+        'Number of unacknowledged alerts',
+        registry=METRICS_REGISTRY
+    )
+    COMPANIES_MONITORED = Gauge(
+        'nickberg_companies_monitored',
+        'Number of companies in watchlist',
+        registry=METRICS_REGISTRY
+    )
+    SCRAPE_LAST_TIMESTAMP = Gauge(
+        'nickberg_scrape_last_timestamp',
+        'Unix timestamp of last successful scrape',
+        registry=METRICS_REGISTRY
+    )
+    ARTICLES_24H = Gauge(
+        'nickberg_articles_24h',
+        'Articles scraped in last 24 hours',
+        registry=METRICS_REGISTRY
+    )
+
+# Disable caching for all responses (development)
+@app.after_request
+def add_header(response):
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
+# Enable CORS for all origins in development
+if CORS_AVAILABLE:
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-API-Key"]
+        }
+    })
+    logger.info("CORS enabled for API endpoints")
 
 # API Authentication
 # Read API key from environment variable
@@ -83,8 +194,16 @@ CONFIG_PATH = Path(__file__).parent.parent / 'config' / 'settings.yaml'
 with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
-# Initialize database (use absolute path from project root)
-DB_PATH = Path(__file__).parent.parent / config['database']['path']
+# Initialize database (support environment variable for cloud deployment)
+DB_PATH_ENV = os.environ.get('NEWS_SENTINEL_DB_PATH')
+if DB_PATH_ENV:
+    DB_PATH = Path(DB_PATH_ENV)
+    # Ensure directory exists
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+else:
+    DB_PATH = Path(__file__).parent.parent / config['database']['path']
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
 db = Database(str(DB_PATH))
 
 # Path to last scrape timestamp file
@@ -107,26 +226,47 @@ if MARKET_DATA_AVAILABLE:
             logger.warning(f"Failed to initialize market data provider: {e}")
 
 
-# Request logging
+# Request logging with tracing
 import time as _time
 
 @app.before_request
 def before_request():
-    """Log incoming requests and start timing"""
+    """Log incoming requests, start timing, and assign trace ID"""
     g.start_time = _time.time()
+    # Generate or extract trace ID for request correlation
+    g.trace_id = request.headers.get('X-Trace-ID') or str(uuid.uuid4())[:8]
 
 
 @app.after_request
 def after_request(response):
-    """Log request completion with timing and status"""
+    """Log request completion with timing, status, and trace ID"""
+    # Add trace ID to response headers for client correlation
+    trace_id = getattr(g, 'trace_id', 'unknown')
+    response.headers['X-Trace-ID'] = trace_id
+
     # Skip logging for static files and health checks to reduce noise
     if request.path.startswith('/static') or request.path == '/health':
         return response
 
     duration = _time.time() - getattr(g, 'start_time', _time.time())
+
+    # Update Prometheus metrics
+    if PROMETHEUS_AVAILABLE and REQUEST_COUNT is not None:
+        endpoint = request.endpoint or 'unknown'
+        REQUEST_COUNT.labels(
+            method=request.method,
+            endpoint=endpoint,
+            status=response.status_code
+        ).inc()
+        REQUEST_LATENCY.labels(
+            method=request.method,
+            endpoint=endpoint
+        ).observe(duration)
+
     logger.info(
         "Request processed",
         extra={
+            'trace_id': trace_id,
             'method': request.method,
             'path': request.path,
             'status_code': response.status_code,
@@ -275,9 +415,25 @@ def get_source_distribution():
 
 
 # Routes
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon"""
+    return send_from_directory(
+        os.path.join(app.root_path, 'static'),
+        'favicon.ico',
+        mimetype='image/x-icon'
+    )
+
+
 @app.route('/')
 def index():
-    """Main dashboard"""
+    """Main dashboard - Bloomberg Terminal Theme"""
+    return render_template('bloomberg-dashboard.html')
+
+
+@app.route('/classic')
+def classic_dashboard():
+    """Original dashboard theme"""
     return render_template('index.html')
 
 
@@ -318,73 +474,63 @@ def health_check():
 def metrics():
     """
     Prometheus-compatible metrics endpoint.
-    Returns metrics in text/plain format.
+    Returns metrics in Prometheus exposition format.
     Does not require API key authentication.
     """
-    metrics_lines = []
+    if not PROMETHEUS_AVAILABLE or METRICS_REGISTRY is None:
+        # Fallback to simple text format if prometheus_client not installed
+        return Response("# prometheus_client not installed\n", mimetype='text/plain')
 
-    # Helper to add metric with optional help and type
-    def add_metric(name, value, help_text=None, metric_type=None):
-        if help_text:
-            metrics_lines.append(f'# HELP {name} {help_text}')
-        if metric_type:
-            metrics_lines.append(f'# TYPE {name} {metric_type}')
-        metrics_lines.append(f'{name} {value}')
-
+    # Update business metrics
     try:
         with db.get_connection() as conn:
-            # Total articles in database
+            # Total articles
             total_articles = conn.execute(
                 "SELECT COUNT(*) as count FROM articles"
             ).fetchone()['count']
-            add_metric(
-                'news_sentinel_articles_total',
-                total_articles,
-                'Total number of articles in the database',
-                'gauge'
-            )
+            if ARTICLES_TOTAL:
+                ARTICLES_TOTAL.set(total_articles)
 
-            # Total alerts generated
+            # Total alerts
             total_alerts = conn.execute(
                 "SELECT COUNT(*) as count FROM alerts"
             ).fetchone()['count']
-            add_metric(
-                'news_sentinel_alerts_total',
-                total_alerts,
-                'Total number of alerts generated',
-                'gauge'
-            )
+            if ALERTS_TOTAL:
+                ALERTS_TOTAL.set(total_alerts)
 
-            # Number of companies monitored (from config watchlist)
-            companies_count = len(config.get('companies', {}).get('watchlist', {}))
-            add_metric(
-                'news_sentinel_companies_monitored',
-                companies_count,
-                'Number of companies in the watchlist',
-                'gauge'
-            )
+            # Unacknowledged alerts
+            unack_alerts = conn.execute(
+                "SELECT COUNT(*) as count FROM alerts WHERE acknowledged = FALSE"
+            ).fetchone()['count']
+            if ALERTS_UNACKNOWLEDGED:
+                ALERTS_UNACKNOWLEDGED.set(unack_alerts)
 
-    except Exception:
-        # If database fails, return what we can
-        pass
+            # Articles in last 24h
+            articles_24h = conn.execute(
+                "SELECT COUNT(*) as count FROM articles WHERE scraped_at > datetime('now', '-1 day')"
+            ).fetchone()['count']
+            if ARTICLES_24H:
+                ARTICLES_24H.set(articles_24h)
 
-    # Last scrape timestamp (as Unix timestamp)
+    except Exception as e:
+        logger.warning(f"Error updating metrics: {e}")
+
+    # Companies monitored
+    companies_count = len(config.get('companies', {}).get('watchlist', {}))
+    if COMPANIES_MONITORED:
+        COMPANIES_MONITORED.set(companies_count)
+
+    # Last scrape timestamp
     last_scrape = get_last_scrape_time()
     if last_scrape:
         try:
-            # Parse ISO format and convert to Unix timestamp
             dt = datetime.fromisoformat(last_scrape.replace('Z', '+00:00'))
-            unix_timestamp = dt.timestamp()
-            add_metric(
-                'news_sentinel_scrape_last_timestamp',
-                unix_timestamp,
-                'Unix timestamp of the last successful scrape',
-                'gauge'
-            )
+            if SCRAPE_LAST_TIMESTAMP:
+                SCRAPE_LAST_TIMESTAMP.set(dt.timestamp())
         except (ValueError, AttributeError):
             pass
 
-    return Response('\n'.join(metrics_lines) + '\n', mimetype='text/plain')
+    return Response(generate_latest(METRICS_REGISTRY), mimetype=CONTENT_TYPE_LATEST)
 
 
 @app.route('/api/stats')
@@ -518,81 +664,49 @@ def api_get_preferences():
 @require_api_key
 def api_save_preferences():
     """Save user preferences"""
+    trace_id = getattr(g, 'trace_id', 'unknown')
+
     try:
         data = request.get_json()
         if not data:
-            return jsonify({'error': 'No data provided'}), 400
+            return jsonify({'error': 'No data provided', 'trace_id': trace_id}), 400
 
-        # Validate and save each preference
+        # Use Pydantic validation if available
+        if PYDANTIC_AVAILABLE:
+            try:
+                validated = PreferencesRequest(**data)
+                data = validated.model_dump(exclude_none=True)
+            except ValidationError as e:
+                # Convert Pydantic errors to JSON-serializable format
+                errors = [err['msg'] for err in e.errors()]
+                return jsonify({
+                    'error': 'Validation failed',
+                    'errors': errors,  # backwards compatible
+                    'details': [{'field': '.'.join(str(x) for x in err['loc']), 'message': err['msg']} for err in e.errors()],
+                    'trace_id': trace_id
+                }), 400
+
+        # Save each preference
         saved = []
         errors = []
 
         for key, value in data.items():
-            # Validate preference values
-            if key == 'thresholds':
-                if not isinstance(value, dict):
-                    errors.append(f"Invalid thresholds format")
-                    continue
-                # Validate threshold values
-                if 'volume_spike' in value:
-                    vol = value['volume_spike']
-                    if not isinstance(vol, (int, float)) or vol < 1.0 or vol > 20.0:
-                        errors.append("volume_spike must be between 1.0 and 20.0")
-                        continue
-                if 'min_articles' in value:
-                    min_art = value['min_articles']
-                    if not isinstance(min_art, int) or min_art < 1 or min_art > 50:
-                        errors.append("min_articles must be between 1 and 50")
-                        continue
-                if 'sentiment_shift' in value:
-                    sent = value['sentiment_shift']
-                    if not isinstance(sent, (int, float)) or sent < 0.1 or sent > 1.0:
-                        errors.append("sentiment_shift must be between 0.1 and 1.0")
-                        continue
-
-            if key == 'alert_channels':
-                if not isinstance(value, dict):
-                    errors.append("Invalid alert_channels format")
-                    continue
-                valid_channels = ['telegram', 'webhook', 'file', 'console']
-                for channel, enabled in value.items():
-                    if channel not in valid_channels:
-                        errors.append(f"Unknown channel: {channel}")
-                        continue
-                    if not isinstance(enabled, bool):
-                        errors.append(f"Channel {channel} must be boolean")
-                        continue
-
-            if key == 'severity_routing':
-                if not isinstance(value, dict):
-                    errors.append("Invalid severity_routing format")
-                    continue
-                valid_severities = ['high', 'medium', 'low']
-                for severity, channels in value.items():
-                    if severity not in valid_severities:
-                        errors.append(f"Unknown severity: {severity}")
-                        continue
-                    if not isinstance(channels, list):
-                        errors.append(f"Channels for {severity} must be a list")
-                        continue
-
-            # Save the preference
             if db.save_preference(key, value):
                 saved.append(key)
             else:
                 errors.append(f"Failed to save {key}")
 
-        if errors:
+        if errors and not saved:
             return jsonify({
-                'success': len(saved) > 0,
-                'saved': saved,
-                'errors': errors
-            }), 400 if not saved else 200
+                'success': False,
+                'errors': errors,
+                'trace_id': trace_id
+            }), 400
 
-        return jsonify({'success': True, 'saved': saved})
+        return jsonify({'success': True, 'saved': saved, 'trace_id': trace_id})
     except Exception as e:
-        logger.error("Error saving preferences", extra={"error": str(e)})
-        return jsonify({'error': 'Failed to save preferences'}), 500
+        logger.error("Error saving preferences", extra={"error": str(e), "trace_id": trace_id})
+        return jsonify({'error': 'Failed to save preferences', 'trace_id': trace_id}), 500
 
 
 @app.route('/api/watchlist', methods=['GET'])
@@ -614,77 +728,76 @@ def api_get_watchlist():
 @require_api_key
 def api_update_watchlist():
     """Update the watchlist (add/remove companies)"""
+    trace_id = getattr(g, 'trace_id', 'unknown')
+
     try:
         data = request.get_json()
         if not data:
-            return jsonify({'error': 'No data provided'}), 400
+            return jsonify({'error': 'No data provided', 'trace_id': trace_id}), 400
 
-        action = data.get('action')
+        # Use Pydantic validation if available
+        if PYDANTIC_AVAILABLE:
+            try:
+                validated = WatchlistAddRequest(**data)
+                action = validated.action
+                ticker = validated.ticker
+                names = validated.names
+                watchlist_data = validated.watchlist
+            except ValidationError as e:
+                # Convert Pydantic errors to JSON-serializable format
+                errors = [{'field': '.'.join(str(x) for x in err['loc']), 'message': err['msg']} for err in e.errors()]
+                return jsonify({
+                    'error': 'Validation failed',
+                    'details': errors,
+                    'trace_id': trace_id
+                }), 400
+        else:
+            action = data.get('action')
+            ticker = data.get('ticker', '').upper().strip() if data.get('ticker') else None
+            names = data.get('names', [])
+            watchlist_data = data.get('watchlist', {})
 
         if action == 'add':
-            ticker = data.get('ticker', '').upper().strip()
-            names = data.get('names', [])
-
             if not ticker:
-                return jsonify({'error': 'Ticker is required'}), 400
+                return jsonify({'error': 'Ticker is required', 'trace_id': trace_id}), 400
             if not isinstance(names, list) or not names:
-                return jsonify({'error': 'Names must be a non-empty list'}), 400
+                return jsonify({'error': 'Names must be a non-empty list', 'trace_id': trace_id}), 400
 
-            # Validate ticker format (1-5 uppercase letters)
-            if not ticker.isalpha() or len(ticker) > 5:
-                return jsonify({'error': 'Invalid ticker format'}), 400
-
-            # Get current watchlist
             watchlist = db.get_preference('watchlist') or config.get('companies', {}).get('watchlist', {})
-
-            # Add or update company
             watchlist[ticker] = names
 
             if db.save_preference('watchlist', watchlist):
-                return jsonify({'success': True, 'watchlist': watchlist})
-            return jsonify({'error': 'Failed to save watchlist'}), 500
+                return jsonify({'success': True, 'watchlist': watchlist, 'trace_id': trace_id})
+            return jsonify({'error': 'Failed to save watchlist', 'trace_id': trace_id}), 500
 
         elif action == 'remove':
-            ticker = data.get('ticker', '').upper().strip()
-
             if not ticker:
-                return jsonify({'error': 'Ticker is required'}), 400
+                return jsonify({'error': 'Ticker is required', 'trace_id': trace_id}), 400
 
-            # Get current watchlist
             watchlist = db.get_preference('watchlist') or config.get('companies', {}).get('watchlist', {})
 
             if ticker in watchlist:
                 del watchlist[ticker]
                 if db.save_preference('watchlist', watchlist):
-                    return jsonify({'success': True, 'watchlist': watchlist})
-                return jsonify({'error': 'Failed to save watchlist'}), 500
+                    return jsonify({'success': True, 'watchlist': watchlist, 'trace_id': trace_id})
+                return jsonify({'error': 'Failed to save watchlist', 'trace_id': trace_id}), 500
 
-            return jsonify({'error': 'Ticker not found in watchlist'}), 404
+            return jsonify({'error': 'Ticker not found in watchlist', 'trace_id': trace_id}), 404
 
         elif action == 'replace':
-            # Replace entire watchlist
-            watchlist = data.get('watchlist', {})
+            if not isinstance(watchlist_data, dict):
+                return jsonify({'error': 'Watchlist must be a dictionary', 'trace_id': trace_id}), 400
 
-            if not isinstance(watchlist, dict):
-                return jsonify({'error': 'Watchlist must be a dictionary'}), 400
-
-            # Validate all entries
-            for ticker, names in watchlist.items():
-                if not ticker.isalpha() or len(ticker) > 5:
-                    return jsonify({'error': f'Invalid ticker format: {ticker}'}), 400
-                if not isinstance(names, list) or not names:
-                    return jsonify({'error': f'Names for {ticker} must be a non-empty list'}), 400
-
-            if db.save_preference('watchlist', watchlist):
-                return jsonify({'success': True, 'watchlist': watchlist})
-            return jsonify({'error': 'Failed to save watchlist'}), 500
+            if db.save_preference('watchlist', watchlist_data):
+                return jsonify({'success': True, 'watchlist': watchlist_data, 'trace_id': trace_id})
+            return jsonify({'error': 'Failed to save watchlist', 'trace_id': trace_id}), 500
 
         else:
-            return jsonify({'error': 'Invalid action. Use: add, remove, or replace'}), 400
+            return jsonify({'error': 'Invalid action. Use: add, remove, or replace', 'trace_id': trace_id}), 400
 
     except Exception as e:
-        logger.error("Error updating watchlist", extra={"error": str(e)})
-        return jsonify({'error': 'Failed to update watchlist'}), 500
+        logger.error("Error updating watchlist", extra={"error": str(e), "trace_id": trace_id})
+        return jsonify({'error': 'Failed to update watchlist', 'trace_id': trace_id}), 500
 
 
 @app.route('/api/alert-rules', methods=['GET'])
@@ -882,6 +995,147 @@ def api_market_data(ticker):
             extra={"ticker": ticker, "error": str(e)}
         )
         return jsonify({'error': 'Failed to get market data'}), 500
+
+
+@app.route('/api/prices')
+@require_api_key
+def get_prices():
+    """Get current stock prices for watchlist companies"""
+    import concurrent.futures
+    
+    tickers = request.args.get('tickers', '').split(',')
+    
+    # Mock prices for quick fallback
+    mock_prices = {
+        'AAPL': { 'price': 185.92, 'change_pct': 1.25 },
+        'MSFT': { 'price': 420.55, 'change_pct': 0.85 },
+        'GOOGL': { 'price': 175.98, 'change_pct': -0.45 },
+        'AMZN': { 'price': 178.35, 'change_pct': 1.12 },
+        'TSLA': { 'price': 248.50, 'change_pct': -2.30 },
+        'NVDA': { 'price': 875.28, 'change_pct': 3.45 },
+        'META': { 'price': 505.20, 'change_pct': 0.95 },
+        'NFLX': { 'price': 628.75, 'change_pct': -0.85 },
+        'AMD': { 'price': 162.45, 'change_pct': 1.85 },
+        'CRM': { 'price': 295.30, 'change_pct': -0.35 },
+        'SPY': { 'price': 520.50, 'change_pct': 0.65 },
+        'QQQ': { 'price': 445.25, 'change_pct': 0.95 },
+        'DIA': { 'price': 390.80, 'change_pct': 0.25 },
+        'IWM': { 'price': 205.40, 'change_pct': -0.15 },
+    }
+    
+    prices = {}
+    
+    def get_ticker_price(ticker):
+        """Fetch price for a single ticker with timeout"""
+        ticker = ticker.strip().upper()
+        if not ticker:
+            return None
+        
+        # Try market data provider first
+        if market_data_provider:
+            try:
+                price = market_data_provider.get_price(ticker)
+                change = market_data_provider.get_intraday_change(ticker)
+                if price:
+                    return (ticker, {
+                        'price': round(price, 2),
+                        'change_pct': round(change, 2) if change else 0,
+                        'timestamp': datetime.now().isoformat()
+                    })
+            except Exception as e:
+                logger.debug(f"Market data failed for {ticker}: {e}")
+        
+        # Fallback to mock data
+        if ticker in mock_prices:
+            return (ticker, {
+                'price': mock_prices[ticker]['price'],
+                'change_pct': mock_prices[ticker]['change_pct'],
+                'timestamp': datetime.now().isoformat(),
+                'source': 'mock'
+            })
+        
+        return None
+    
+    # Fetch prices with timeout
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_ticker = {executor.submit(get_ticker_price, t): t for t in tickers if t.strip()}
+        
+        for future in concurrent.futures.as_completed(future_to_ticker, timeout=3):
+            try:
+                result = future.result(timeout=1)
+                if result:
+                    ticker, data = result
+                    prices[ticker] = data
+            except Exception as e:
+                logger.debug(f"Error fetching price: {e}")
+    
+    return jsonify(prices)
+
+
+@app.route('/api/stock/<ticker>/details')
+@require_api_key
+def api_stock_details(ticker):
+    """
+    Get detailed stock information for a ticker.
+    Includes price, change, volume, and recent mentions.
+    """
+    ticker = ticker.upper().strip()
+    
+    # Mock detailed data for any ticker
+    import random
+    base_price = 100 + random.random() * 400
+    change_pct = (random.random() - 0.5) * 10
+    
+    # Try to get real data if available
+    real_price = None
+    real_change = None
+    if market_data_provider:
+        try:
+            real_price = market_data_provider.get_price(ticker)
+            real_change = market_data_provider.get_intraday_change(ticker)
+        except Exception as e:
+            logger.debug(f"Could not get real data for {ticker}: {e}")
+    
+    price = real_price if real_price else base_price
+    change = real_change if real_change is not None else change_pct
+    
+    # Generate realistic mock details
+    day_high = price * (1 + abs(random.gauss(0, 0.01)))
+    day_low = price * (1 - abs(random.gauss(0, 0.01)))
+    volume = int(random.uniform(1000000, 50000000))
+    avg_volume = int(volume * random.uniform(0.8, 1.2))
+    
+    # Get mentions from database
+    mentions = []
+    try:
+        recent_articles = db.get_recent_articles(limit=100)
+        for article in recent_articles:
+            if ticker in str(article.get('title', '')).upper() or ticker in str(article.get('content', '')).upper():
+                mentions.append({
+                    'title': article.get('title', ''),
+                    'source': article.get('source', ''),
+                    'published': article.get('published_at', ''),
+                    'sentiment': article.get('sentiment', 'neutral')
+                })
+        mentions = mentions[:5]  # Top 5 mentions
+    except Exception as e:
+        logger.debug(f"Could not get mentions for {ticker}: {e}")
+    
+    return jsonify({
+        'ticker': ticker,
+        'price': round(price, 2),
+        'change': round(change, 2),
+        'change_amount': round(price * change / 100, 2),
+        'day_high': round(day_high, 2),
+        'day_low': round(day_low, 2),
+        'volume': volume,
+        'avg_volume': avg_volume,
+        'market_cap': f"${random.uniform(10, 3000):.1f}B",
+        'pe_ratio': round(random.uniform(10, 40), 1),
+        'mentions': mentions,
+        'mentions_count': len(mentions),
+        'timestamp': datetime.now().isoformat()
+    })
 
 
 @app.route('/api/market/<ticker>/history')

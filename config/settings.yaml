@@ -43,14 +43,11 @@ scraping:
 sources:
   # === TIER 1: Major Financial News ===
   
-  reuters:
-    enabled: false  # Disabled: reutersagency.com RSS feeds return 404
-    name: "Reuters"
-    rss_feeds:
-      - "https://www.reutersagency.com/feed/?taxonomy=markets&post_type=reuters-best"
-      - "https://www.reutersagency.com/feed/?taxonomy=business-finance&post_type=reuters-best"
-      - "https://www.reutersagency.com/feed/?taxonomy=tech&post_type=reuters-best"
-      - "https://www.reutersagency.com/feed/?taxonomy=commodities&post_type=reuters-best"
+  # reuters:
+  #   enabled: false
+  #   name: "Reuters"
+  #   note: "REMOVED - reutersagency.com RSS feeds return 404. Reuters no longer offers public RSS."
+  #   Consider using Reuters API if you have access.
 
   bloomberg:
     enabled: true
@@ -202,12 +199,10 @@ sources:
       - "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml"
       - "https://rss.nytimes.com/services/xml/rss/nyt/YourMoney.xml"
 
-  ap_news:
-    enabled: false  # Disabled: rsshub.app feeds return 403
-    name: "AP News"
-    rss_feeds:
-      - "https://rsshub.app/apnews/topics/ap-business"
-      - "https://rsshub.app/apnews/topics/ap-technology"
+  # ap_news:
+  #   enabled: false
+  #   name: "AP News"
+  #   note: "REMOVED - rsshub.app proxy returns 403. AP News does not offer public RSS feeds."
 
   # === TIER 4: Financial Data & Analysis ===
 
@@ -218,20 +213,40 @@ sources:
       - "https://finance.yahoo.com/news/rssindex"
       - "https://finance.yahoo.com/rss/topstories"
 
-  morningbrew:
-    enabled: false  # Disabled: Feed returns 404
-    name: "Morning Brew"
-    rss_feeds:
-      - "https://morningbrew.com/daily/rss"
+  # morningbrew:
+  #   enabled: false
+  #   name: "Morning Brew"
+  #   note: "REMOVED - Morning Brew discontinued public RSS feeds (404)."
 
-  finviz:
-    enabled: false  # Disabled: DNS resolution fails
-    name: "Finviz"
-    rss_feeds:
-      - "https://rss.finviz.com/news.ashx"
+  # finviz:
+  #   enabled: false
+  #   name: "Finviz"
+  #   note: "REMOVED - rss.finviz.com DNS no longer resolves."
 
-  # === TIER 5: Crypto & Alternative ===
-  
+  # === TIER 5: Additional Reliable Sources ===
+
+  # Replacements for removed broken feeds
+  benzinga:
+    enabled: true
+    name: "Benzinga"
+    rss_feeds:
+      - "https://www.benzinga.com/feed"
+
+  thestreet:
+    enabled: true
+    name: "TheStreet"
+    rss_feeds:
+      - "https://www.thestreet.com/feeds/rss/investing.xml"
+      - "https://www.thestreet.com/feeds/rss/technology.xml"
+
+  fool:
+    enabled: true
+    name: "Motley Fool"
+    rss_feeds:
+      - "https://www.fool.com/feeds/index.aspx"
+
+  # === TIER 6: Crypto & Alternative ===
+
   coindesk:
     enabled: true
     name: "CoinDesk"
@@ -329,8 +344,8 @@ companies:
     WFC: ["Wells Fargo", "WFC"]
     GS: ["Goldman Sachs", "GS"]
     MS: ["Morgan Stanley", "MS"]
-    C: ["Citigroup", "C", "Citi"]
-    V: ["Visa", "V"]
+    C: ["Citigroup", "Citi"]  # Removed "C" - single letter causes false positives
+    V: ["Visa"]  # Removed "V" - single letter causes false positives
     MA: ["Mastercard", "MA"]
     
     # Healthcare
@@ -360,7 +375,7 @@ companies:
     
     # Telecom
     VZ: ["Verizon", "VZ"]
-    T: ["AT&T", "T"]
+    T: ["AT&T"]  # Removed "T" - single letter causes too many false positives
     
     # Crypto-related stocks
     COIN: ["Coinbase", "COIN"]
