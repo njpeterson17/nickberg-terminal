@@ -18,7 +18,7 @@ log_error() {
 
 wait_for_db() {
     # Wait for database file to be accessible (relevant when using shared volumes)
-    local db_path="${NEWS_SENTINEL_DB_PATH:-/app/data/news_sentinel.db}"
+    local db_path="${NICKBERG_DB_PATH:-/app/data/nickberg.db}"
     local db_dir=$(dirname "$db_path")
 
     if [ ! -d "$db_dir" ]; then
@@ -37,9 +37,9 @@ validate_environment() {
     log_info "Validating environment..."
 
     # Check if Telegram is enabled but credentials are missing
-    if [ "${NEWS_BOT_TELEGRAM_ENABLED:-false}" = "true" ]; then
-        if [ -z "$NEWS_BOT_TELEGRAM_TOKEN" ] || [ -z "$NEWS_BOT_TELEGRAM_CHAT_ID" ]; then
-            log_error "Telegram is enabled but NEWS_BOT_TELEGRAM_TOKEN or NEWS_BOT_TELEGRAM_CHAT_ID is not set"
+    if [ "${NICKBERG_TELEGRAM_ENABLED:-false}" = "true" ]; then
+        if [ -z "$NICKBERG_TELEGRAM_TOKEN" ] || [ -z "$NICKBERG_TELEGRAM_CHAT_ID" ]; then
+            log_error "Telegram is enabled but NICKBERG_TELEGRAM_TOKEN or NICKBERG_TELEGRAM_CHAT_ID is not set"
             exit 1
         fi
         log_info "Telegram notifications: enabled"
@@ -48,9 +48,9 @@ validate_environment() {
     fi
 
     # Check webhook configuration
-    if [ "${NEWS_BOT_WEBHOOK_ENABLED:-false}" = "true" ]; then
-        if [ -z "$NEWS_BOT_WEBHOOK_URL" ]; then
-            log_error "Webhook is enabled but NEWS_BOT_WEBHOOK_URL is not set"
+    if [ "${NICKBERG_WEBHOOK_ENABLED:-false}" = "true" ]; then
+        if [ -z "$NICKBERG_WEBHOOK_URL" ]; then
+            log_error "Webhook is enabled but NICKBERG_WEBHOOK_URL is not set"
             exit 1
         fi
         log_info "Webhook notifications: enabled"
@@ -59,7 +59,7 @@ validate_environment() {
     fi
 
     # Log API key status (don't log the actual key!)
-    if [ -n "$NEWS_SENTINEL_API_KEY" ]; then
+    if [ -n "$NICKBERG_API_KEY" ]; then
         log_info "API authentication: enabled"
     else
         log_info "API authentication: disabled (unauthenticated access allowed)"

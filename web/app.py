@@ -148,14 +148,14 @@ if CORS_AVAILABLE:
 
 # API Authentication
 # Read API key from environment variable
-API_KEY = os.environ.get('NEWS_SENTINEL_API_KEY', '')
+API_KEY = os.environ.get('NICKBERG_API_KEY', '')
 
 
 def require_api_key(f):
     """
     Decorator to require API key authentication for endpoints.
 
-    If NEWS_SENTINEL_API_KEY env var is not set, allows unauthenticated access
+    If NICKBERG_API_KEY env var is not set, allows unauthenticated access
     for backwards compatibility.
 
     API key can be provided via:
@@ -195,7 +195,7 @@ with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
 # Initialize database (support environment variable for cloud deployment)
-DB_PATH_ENV = os.environ.get('NEWS_SENTINEL_DB_PATH')
+DB_PATH_ENV = os.environ.get('NICKBERG_DB_PATH')
 if DB_PATH_ENV:
     DB_PATH = Path(DB_PATH_ENV)
     # Ensure directory exists

@@ -4,7 +4,7 @@
 services:
   # Web Dashboard Service
   - type: web
-    name: news-sentinel-bot
+    name: nickberg-terminal
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
@@ -15,7 +15,7 @@ services:
       - key: FLASK_ENV
         value: production
       - key: NEWS_SENTINEL_DB_PATH
-        value: /opt/render/project/src/data/news_sentinel.db
+        value: /opt/render/project/src/data/nickberg.db
       - key: SCRAPER_MODE
         value: schedule
       - key: SCRAPER_INTERVAL_SECONDS
@@ -40,7 +40,7 @@ services:
       - key: SCRAPER_INTERVAL_SECONDS
         value: 900
       - key: NEWS_SENTINEL_DB_PATH
-        value: /opt/render/project/src/data/news_sentinel.db
+        value: /opt/render/project/src/data/nickberg.db
     disk:
       name: data
       mountPath: /opt/render/project/src/data

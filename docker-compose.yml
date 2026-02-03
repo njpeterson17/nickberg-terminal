@@ -12,7 +12,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: news-sentinel-bot:latest
+    image: nickberg-terminal:latest
     container_name: news-sentinel-scraper
     command: scraper
 
@@ -23,19 +23,19 @@ services:
       - SCRAPER_INTERVAL_SECONDS=${SCRAPER_INTERVAL_SECONDS:-900}
 
       # Telegram notifications (optional)
-      - NEWS_BOT_TELEGRAM_ENABLED=${NEWS_BOT_TELEGRAM_ENABLED:-false}
-      - NEWS_BOT_TELEGRAM_TOKEN=${NEWS_BOT_TELEGRAM_TOKEN:-}
-      - NEWS_BOT_TELEGRAM_CHAT_ID=${NEWS_BOT_TELEGRAM_CHAT_ID:-}
+      - NICKBERG_TELEGRAM_ENABLED=${NICKBERG_TELEGRAM_ENABLED:-false}
+      - NICKBERG_TELEGRAM_TOKEN=${NICKBERG_TELEGRAM_TOKEN:-}
+      - NICKBERG_TELEGRAM_CHAT_ID=${NICKBERG_TELEGRAM_CHAT_ID:-}
 
       # Webhook notifications (optional)
-      - NEWS_BOT_WEBHOOK_ENABLED=${NEWS_BOT_WEBHOOK_ENABLED:-false}
-      - NEWS_BOT_WEBHOOK_URL=${NEWS_BOT_WEBHOOK_URL:-}
+      - NICKBERG_WEBHOOK_ENABLED=${NICKBERG_WEBHOOK_ENABLED:-false}
+      - NICKBERG_WEBHOOK_URL=${NICKBERG_WEBHOOK_URL:-}
 
       # Database path
-      - NEWS_SENTINEL_DB_PATH=/app/data/news_sentinel.db
+      - NICKBERG_DB_PATH=/app/data/nickberg.db
 
       # Logging
-      - NEWS_SENTINEL_LOG_LEVEL=${NEWS_SENTINEL_LOG_LEVEL:-INFO}
+      - NICKBERG_LOG_LEVEL=${NICKBERG_LOG_LEVEL:-INFO}
 
     # Persistent storage
     volumes:
@@ -84,7 +84,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: news-sentinel-bot:latest
+    image: nickberg-terminal:latest
     container_name: news-sentinel-web
     command: web
 
@@ -97,13 +97,13 @@ services:
       - WEB_WORKERS=${WEB_WORKERS:-4}
 
       # API authentication
-      - NEWS_SENTINEL_API_KEY=${NEWS_SENTINEL_API_KEY:-}
+      - NICKBERG_API_KEY=${NICKBERG_API_KEY:-}
 
       # Database path (shared with scraper)
-      - NEWS_SENTINEL_DB_PATH=/app/data/news_sentinel.db
+      - NICKBERG_DB_PATH=/app/data/nickberg.db
 
       # Logging
-      - NEWS_SENTINEL_LOG_LEVEL=${NEWS_SENTINEL_LOG_LEVEL:-INFO}
+      - NICKBERG_LOG_LEVEL=${NICKBERG_LOG_LEVEL:-INFO}
 
     # Persistent storage (shared volumes with scraper)
     volumes:

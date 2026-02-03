@@ -1,4 +1,4 @@
-# News Sentinel Bot Configuration
+# Nickberg Terminal Configuration
 
 # Scraping settings
 scraping:
@@ -399,18 +399,18 @@ alerts:
 
   # Telegram (optional)
   # SECURITY: Set credentials via environment variables, NOT in this file
-  # Required env vars: NEWS_BOT_TELEGRAM_TOKEN, NEWS_BOT_TELEGRAM_CHAT_ID
+  # Required env vars: NICKBERG_TELEGRAM_TOKEN, NICKBERG_TELEGRAM_CHAT_ID
   telegram:
     enabled: false
     # Values below are fallbacks if env vars are not set (leave empty for security)
-    bot_token: "${NEWS_BOT_TELEGRAM_TOKEN}"
-    chat_id: "${NEWS_BOT_TELEGRAM_CHAT_ID}"
+    bot_token: "${NICKBERG_TELEGRAM_TOKEN}"
+    chat_id: "${NICKBERG_TELEGRAM_CHAT_ID}"
 
   # Webhook (for integration with other systems)
-  # SECURITY: Set URL via environment variable NEWS_BOT_WEBHOOK_URL
+  # SECURITY: Set URL via environment variable NICKBERG_WEBHOOK_URL
   webhook:
     enabled: false
-    url: "${NEWS_BOT_WEBHOOK_URL}"
+    url: "${NICKBERG_WEBHOOK_URL}"
 
   # Alert aggregation - groups related alerts by company within a time window
   # Instead of 5 separate AAPL alerts, creates one summary:
@@ -449,11 +449,11 @@ alerts:
     #   channels: [file]
 
 # API Security
-# SECURITY: Set API key via environment variable NEWS_SENTINEL_API_KEY
+# SECURITY: Set API key via environment variable NICKBERG_API_KEY
 # If not set, API endpoints will be accessible without authentication (backwards compatible)
 api:
   require_auth: true  # Set to false to disable API authentication
-  # API key is read from NEWS_SENTINEL_API_KEY environment variable
+  # API key is read from NICKBERG_API_KEY environment variable
 
 # Market Data - Stock price integration for news-price correlation
 # Uses yfinance library (free, no API key required)
@@ -468,7 +468,7 @@ market_data:
 
 # Database
 database:
-  path: "data/news_sentinel.db"
+  path: "data/nickberg.db"
   retention_days: 30  # Keep articles for 30 days
 
 # Scheduling

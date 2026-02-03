@@ -22,8 +22,8 @@ A financial news monitoring bot that scrapes major news sources to detect covera
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/news-sentinel-bot.git
-cd news-sentinel-bot
+git clone https://github.com/njpeterson17/nickberg-terminal.git
+cd nickberg-terminal
 
 # Create virtual environment
 python3 -m venv .venv
@@ -80,10 +80,10 @@ Create a `.env` file or export these variables:
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `NEWS_BOT_TELEGRAM_TOKEN` | Telegram bot token for alerts | No |
-| `NEWS_BOT_TELEGRAM_CHAT_ID` | Telegram chat ID for alerts | No |
-| `NEWS_BOT_WEBHOOK_URL` | Webhook URL for external integrations | No |
-| `NEWS_SENTINEL_API_KEY` | API key for dashboard authentication | No |
+| `NICKBERG_TELEGRAM_TOKEN` | Telegram bot token for alerts | No |
+| `NICKBERG_TELEGRAM_CHAT_ID` | Telegram chat ID for alerts | No |
+| `NICKBERG_WEBHOOK_URL` | Webhook URL for external integrations | No |
+| `NICKBERG_API_KEY` | API key for dashboard authentication | No |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, WARNING, ERROR) | No |
 | `LOG_FORMAT` | Log output format | No |
 
@@ -176,27 +176,27 @@ sources:
 
 ```bash
 # Build the image
-docker build -t news-sentinel-bot .
+docker build -t nickberg-terminal .
 
 # Run the scraper
 docker run -d \
-  --name news-sentinel \
+  --name nickberg-terminal \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/logs:/app/logs \
   -v $(pwd)/config:/app/config \
-  -e NEWS_SENTINEL_API_KEY=your-api-key \
-  -e NEWS_BOT_TELEGRAM_TOKEN=your-token \
-  -e NEWS_BOT_TELEGRAM_CHAT_ID=your-chat-id \
-  news-sentinel-bot scraper
+  -e NICKBERG_API_KEY=your-api-key \
+  -e NICKBERG_TELEGRAM_TOKEN=your-token \
+  -e NICKBERG_TELEGRAM_CHAT_ID=your-chat-id \
+  nickberg-terminal scraper
 
 # Run the web dashboard
 docker run -d \
-  --name news-sentinel-web \
+  --name nickberg-terminal-web \
   -p 5000:5000 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/config:/app/config \
-  -e NEWS_SENTINEL_API_KEY=your-api-key \
-  news-sentinel-bot web
+  -e NICKBERG_API_KEY=your-api-key \
+  nickberg-terminal web
 ```
 
 ### Volume Mounts
@@ -217,7 +217,7 @@ docker run -d \
 
 ## API Documentation
 
-All API endpoints (except `/health` and `/metrics`) require authentication when `NEWS_SENTINEL_API_KEY` is set.
+All API endpoints (except `/health` and `/metrics`) require authentication when `NICKBERG_API_KEY` is set.
 
 ### Authentication
 
@@ -274,7 +274,7 @@ curl http://localhost:5000/metrics
 ### Components
 
 ```
-news-sentinel-bot/
+nickberg-terminal/
 ├── src/
 │   ├── main.py              # CLI entry point and orchestration
 │   ├── scraper.py           # Multi-source RSS feed scraper
@@ -429,7 +429,7 @@ Enable: `sudo systemctl enable --now news-sentinel.timer`
 - Check disk space and permissions
 
 **API authentication failing?**
-- Verify `NEWS_SENTINEL_API_KEY` is set
+- Verify `NICKBERG_API_KEY` is set
 - Check header format: `X-API-Key: your-key`
 
 ## License
