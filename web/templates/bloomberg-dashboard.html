@@ -160,18 +160,17 @@
         <div id="dashboardTab" class="tab-content active">
             <!-- Main Terminal Grid -->
             <div class="terminal-grid">
-                <!-- Bluesky Financial Feed Panel (Full Size) -->
-                <div class="panel bluesky-panel-full">
+                <!-- Articles Feed Panel -->
+                <div class="panel articles-panel">
                     <div class="panel-header">
-                        <h2><i class="fas fa-cloud"></i> BLUESKY FINANCE</h2>
-                        <span class="badge" style="background: #1185fe; color: white;">LIVE</span>
+                        <h2><i class="fas fa-newspaper"></i> ARTICLES FEED</h2>
+                        <select id="articleFilter" class="filter-select">
+                            <option value="all">ALL SOURCES</option>
+                        </select>
                     </div>
-                    <div class="panel-body" style="padding: 0;">
-                        <div class="bluesky-feed-full" id="blueskyFeedFull">
-                            <div class="bluesky-loading">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <span>Loading Bluesky feed...</span>
-                            </div>
+                    <div class="panel-body">
+                        <div id="articlesList" class="articles-list">
+                            <div class="loading">LOADING ARTICLES...</div>
                         </div>
                     </div>
                 </div>
@@ -233,17 +232,18 @@
                     </div>
                 </div>
 
-                <!-- Articles Feed Panel -->
-                <div class="panel articles-panel">
+                <!-- Bluesky Financial Feed Panel (Full Size) -->
+                <div class="panel bluesky-panel-full">
                     <div class="panel-header">
-                        <h2><i class="fas fa-newspaper"></i> ARTICLES FEED</h2>
-                        <select id="articleFilter" class="filter-select">
-                            <option value="all">ALL SOURCES</option>
-                        </select>
+                        <h2><i class="fas fa-cloud"></i> BLUESKY FINANCE</h2>
+                        <span class="badge" style="background: #1185fe; color: white;">LIVE</span>
                     </div>
-                    <div class="panel-body">
-                        <div id="articlesList" class="articles-list">
-                            <div class="loading">LOADING ARTICLES...</div>
+                    <div class="panel-body" style="padding: 0;">
+                        <div class="bluesky-feed-full" id="blueskyFeedFull">
+                            <div class="bluesky-loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>Loading Bluesky feed...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
