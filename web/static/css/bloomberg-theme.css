@@ -196,7 +196,7 @@ body {
 /* Terminal Grid Layout */
 .terminal-grid {
   display: grid;
-  grid-template-columns: 1fr 260px 280px;
+  grid-template-columns: 1fr 240px 380px;
   gap: 1px;
   background: var(--border-color);
   flex: 1;
