@@ -117,8 +117,8 @@
             </div>
         </div>
 
-        <!-- Secondary Grid -->
-        <div class="secondary-grid">
+        <!-- Third Row: Top Mentioned | Twitter Ticker | Sentiment -->
+        <div class="tertiary-grid">
             <!-- Top Companies -->
             <div class="panel">
                 <div class="panel-header">
@@ -127,6 +127,69 @@
                 <div class="panel-body">
                     <div id="topCompanies" class="companies-list">
                         <div class="loading">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Twitter/X Financial Ticker -->
+            <div class="panel twitter-panel">
+                <div class="panel-header">
+                    <h2><i class="fab fa-twitter"></i> Financial Twitter</h2>
+                    <span class="badge live-badge">LIVE</span>
+                </div>
+                <div class="panel-body twitter-container">
+                    <div class="twitter-feed" id="twitterFeed">
+                        <!-- Twitter Timeline Embed -->
+                        <a class="twitter-timeline" 
+                           data-height="400"
+                           data-theme="dark"
+                           data-chrome="noheader nofooter noborders transparent"
+                           href="https://twitter.com/i/lists/1690667842748379272?ref_src=twsrc%5Etfw">
+                           Loading Financial Twitter...
+                        </a>
+                        <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+                    </div>
+                    <!-- Fallback/Loading State -->
+                    <div class="twitter-fallback" id="twitterFallback" style="display: none;">
+                        <div class="tweet-simulator">
+                            <div class="simulated-tweet">
+                                <div class="tweet-header">
+                                    <i class="fab fa-twitter"></i>
+                                    <span class="tweet-user">@DeItaone</span>
+                                    <span class="tweet-time">2m</span>
+                                </div>
+                                <p class="tweet-text">BREAKING: $AAPL announces record Q1 earnings, beats estimates by 15%</p>
+                            </div>
+                            <div class="simulated-tweet">
+                                <div class="tweet-header">
+                                    <i class="fab fa-twitter"></i>
+                                    <span class="tweet-user">@FirstSquawk</span>
+                                    <span class="tweet-time">5m</span>
+                                </div>
+                                <p class="tweet-text">$TSLA shares up 3% pre-market on delivery numbers</p>
+                            </div>
+                            <div class="simulated-tweet">
+                                <div class="tweet-header">
+                                    <i class="fab fa-twitter"></i>
+                                    <span class="tweet-user">@unusual_whales</span>
+                                    <span class="tweet-time">8m</span>
+                                </div>
+                                <p class="tweet-text">Unusual options activity detected on $NVDA ahead of earnings</p>
+                            </div>
+                            <div class="simulated-tweet">
+                                <div class="tweet-header">
+                                    <i class="fab fa-twitter"></i>
+                                    <span class="tweet-user">@BreakingNews</span>
+                                    <span class="tweet-time">12m</span>
+                                </div>
+                                <p class="tweet-text">Fed Chair Powell hints at potential rate pause in next meeting</p>
+                            </div>
+                        </div>
+                        <p class="twitter-fallback-note">
+                            <i class="fas fa-info-circle"></i> 
+                            Twitter feed unavailable. Follow 
+                            <a href="https://twitter.com/i/lists/1690667842748379272" target="_blank">Financial Twitter List</a>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -143,8 +206,10 @@
                     <div id="sentimentStats" class="sentiment-stats"></div>
                 </div>
             </div>
+        </div>
 
-            <!-- Recent Articles -->
+        <!-- Recent Articles Row -->
+        <div class="articles-row">
             <div class="panel articles-panel">
                 <div class="panel-header">
                     <h2><i class="fas fa-list"></i> Recent Articles</h2>

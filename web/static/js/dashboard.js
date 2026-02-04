@@ -133,6 +133,38 @@ function debounce(func, wait) {
 
 async function initDashboard() {
     await loadAllData();
+    initTwitterWidget();
+}
+
+// Initialize Twitter Widget with fallback
+function initTwitterWidget() {
+    const twitterFeed = document.getElementById('twitterFeed');
+    const twitterFallback = document.getElementById('twitterFallback');
+    
+    // Check if Twitter widgets.js loaded successfully
+    const checkTwitterLoaded = () => {
+        return typeof twttr !== 'undefined' && twttr.widgets;
+    };
+    
+    // Wait for Twitter widget to load (or fail)
+    setTimeout(() => {
+        if (!checkTwitterLoaded()) {
+            // Twitter didn't load, show fallback
+            console.log('Twitter widget not loaded, showing fallback');
+            if (twitterFeed) twitterFeed.style.display = 'none';
+            if (twitterFallback) twitterFallback.style.display = 'block';
+        }
+    }, 5000); // Check after 5 seconds
+    
+    // Also set up a listener for when Twitter does load
+    if (typeof twttr !== 'undefined') {
+        twttr.ready(function(twttr) {
+            console.log('Twitter widget loaded successfully');
+            // Widget loaded, ensure feed is visible
+            if (twitterFeed) twitterFeed.style.display = 'block';
+            if (twitterFallback) twitterFallback.style.display = 'none';
+        });
+    }
 }
 
 function setupEventListeners() {
