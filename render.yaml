@@ -14,7 +14,7 @@ services:
         value: 3.11.0
       - key: FLASK_ENV
         value: production
-      - key: NEWS_SENTINEL_DB_PATH
+      - key: NICKBERG_DB_PATH
         value: /opt/render/project/src/data/nickberg.db
       - key: SCRAPER_MODE
         value: schedule
@@ -27,7 +27,7 @@ services:
 
   # Background Scraper Service (runs continuously)
   - type: worker
-    name: news-sentinel-scraper
+    name: nickberg-scraper
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt

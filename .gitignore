@@ -41,3 +41,5 @@ htmlcov/
 *.log
 web-server.log
 web_server.log
+deploy/
+*.zip

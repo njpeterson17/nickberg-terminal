@@ -2457,3 +2457,77 @@ body {
     padding: 10px 0;
   }
 }
+
+/* Trending Keywords Section */
+.trending-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.trending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.trending-title {
+  font-size: 11px;
+  color: var(--accent-orange);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.trending-title i {
+  margin-right: 6px;
+  color: #ff4444;
+}
+
+.trending-period {
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.trending-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.keyword-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.keyword-tag:hover {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
+.keyword-tag .keyword-count {
+  font-size: 10px;
+  color: var(--accent-orange);
+  font-weight: bold;
+}
+
+.keyword-tag.hot {
+  border-color: var(--accent-orange);
+  background: rgba(255, 102, 0, 0.1);
+}
+
+.keyword-tag.hot .keyword-count {
+  color: #ff4444;
+}

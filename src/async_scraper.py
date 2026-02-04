@@ -812,7 +812,7 @@ class AsyncScraperManager:
             config_path,
             os.path.join(os.path.dirname(__file__), "..", config_path),
             os.path.join(os.path.dirname(__file__), config_path),
-            "/home/nick/news-sentinel-bot/config/settings.yaml",
+            "/home/nick/nickberg-terminal/config/settings.yaml",
         ]
 
         for path in paths_to_try:

@@ -302,7 +302,8 @@ async function loadAllData() {
             loadMarketMonitor(),
             loadTopCompanies(),
             loadArticles(),
-            loadSentiment()
+            loadSentiment(),
+            loadTrendingKeywords()
         ]);
         
         updateLastUpdated();
@@ -503,6 +504,42 @@ async function acknowledgeAlert(id) {
         showToast('Alert acknowledged', 'success');
     } catch (error) {
         showToast('Error acknowledging alert', 'error');
+    }
+}
+
+// Load trending keywords
+async function loadTrendingKeywords() {
+    try {
+        const response = await fetchWithTimeout('/api/trending-keywords?hours=24&limit=15');
+        const data = await response.json();
+
+        const container = document.getElementById('trendingKeywords');
+        if (!container) return;
+
+        if (!data.keywords || data.keywords.length === 0) {
+            container.innerHTML = '<span class="text-muted">No trending keywords</span>';
+            return;
+        }
+
+        // Find max count for relative sizing
+        const maxCount = Math.max(...data.keywords.map(k => k.count));
+
+        container.innerHTML = data.keywords.map((kw, idx) => {
+            const isHot = idx < 3; // Top 3 are "hot"
+            return `
+                <span class="keyword-tag ${isHot ? 'hot' : ''}">
+                    ${kw.keyword}
+                    <span class="keyword-count">${kw.count}</span>
+                </span>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('Error loading trending keywords:', error);
+        const container = document.getElementById('trendingKeywords');
+        if (container) {
+            container.innerHTML = '<span class="text-muted">Error loading keywords</span>';
+        }
     }
 }
 

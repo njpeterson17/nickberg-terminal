@@ -617,6 +617,83 @@ def api_config():
     })
 
 
+@app.route('/api/trending-keywords')
+@require_api_key
+def api_trending_keywords():
+    """
+    Get trending keywords from recent article titles.
+
+    Query params:
+        - hours: Time window in hours (default 24, max 168)
+        - limit: Number of keywords to return (default 20, max 50)
+    """
+    import re
+    from collections import Counter
+
+    hours = request.args.get('hours', 24, type=int)
+    hours = min(max(hours, 1), 168)  # Clamp between 1 and 168
+    limit = request.args.get('limit', 20, type=int)
+    limit = min(max(limit, 1), 50)  # Clamp between 1 and 50
+
+    # Common stop words to filter out
+    stop_words = {
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'been',
+        'be', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+        'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need',
+        'it', 'its', 'this', 'that', 'these', 'those', 'i', 'you', 'he',
+        'she', 'we', 'they', 'what', 'which', 'who', 'whom', 'when', 'where',
+        'why', 'how', 'all', 'each', 'every', 'both', 'few', 'more', 'most',
+        'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same',
+        'so', 'than', 'too', 'very', 'just', 'about', 'into', 'over', 'after',
+        'before', 'between', 'under', 'again', 'further', 'then', 'once',
+        'here', 'there', 'out', 'up', 'down', 'off', 'above', 'below',
+        'new', 'says', 'said', 'say', 'amid', 'also', 'now', 'get', 'gets',
+        'one', 'two', 'first', 'last', 'year', 'years', 'week', 'day', 'days',
+        'today', 'after', 'while', 'still', 'back', 'being', 'even', 'well',
+        'way', 'our', 'my', 'your', 'his', 'her', 'their', 'any', 'many',
+        'much', 'us', 'him', 'them', 'me', 'reuters', 'bloomberg', 'cnbc',
+        'report', 'reports', 'news', 'update', 'updates', 'via', 'per', 'like'
+    }
+
+    try:
+        with db.get_connection() as conn:
+            since = datetime.now() - timedelta(hours=hours)
+
+            # Get article titles from the time window
+            rows = conn.execute("""
+                SELECT title FROM articles
+                WHERE scraped_at > ?
+            """, (since,)).fetchall()
+
+            # Extract and count words
+            word_counts = Counter()
+            for row in rows:
+                title = row['title'] or ''
+                # Extract words (alphanumeric, 3+ chars)
+                words = re.findall(r'\b[a-zA-Z]{3,}\b', title.lower())
+                # Filter stop words and count
+                for word in words:
+                    if word not in stop_words:
+                        word_counts[word] += 1
+
+            # Get top keywords
+            top_keywords = [
+                {'keyword': word, 'count': count}
+                for word, count in word_counts.most_common(limit)
+            ]
+
+            return jsonify({
+                'keywords': top_keywords,
+                'hours': hours,
+                'article_count': len(rows)
+            })
+
+    except Exception as e:
+        logger.error("Error getting trending keywords", extra={"error": str(e)})
+        return jsonify({'error': 'Failed to get trending keywords'}), 500
+
+
 # =============================================================================
 # Preferences API Endpoints
 # =============================================================================
