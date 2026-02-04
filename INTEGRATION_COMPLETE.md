@@ -26,7 +26,7 @@ FRED_API_KEY=ad8c581933c2f2205cbc8587c56475e1
 
 ## ⚠️ Environment Compatibility Issue
 
-The news-sentinel-bot's virtual environment has a version mismatch between:
+The nickberg-terminal's virtual environment has a version mismatch between:
 - `openbb-core` 
 - `openbb-fmp`
 - `openbb-news`
@@ -72,13 +72,13 @@ News articles: 2
 Option 1: Use the working OpenBB environment
 ```bash
 source /home/nick/openbb_env/bin/activate
-export $(cat /home/nick/news-sentinel-bot/.env | grep -v '^#' | xargs)
+export $(cat /home/nick/nickberg-terminal/.env | grep -v '^#' | xargs)
 # Then run your bot
 ```
 
-Option 2: Reinstall OpenBB in news-sentinel-bot venv
+Option 2: Reinstall OpenBB in nickberg-terminal venv
 ```bash
-cd /home/nick/news-sentinel-bot
+cd /home/nick/nickberg-terminal
 source .venv/bin/activate
 pip uninstall openbb openbb-core -y
 pip install openbb==4.6.0
@@ -90,7 +90,7 @@ Option 3: Copy the working environment
 source /home/nick/openbb_env/bin/activate
 pip freeze > /tmp/openbb_packages.txt
 
-cd /home/nick/news-sentinel-bot
+cd /home/nick/nickberg-terminal
 source .venv/bin/activate
 pip install -r /tmp/openbb_packages.txt
 ```
@@ -137,7 +137,7 @@ indicators = provider.get_key_economic_indicators()
 ## 📁 Files Modified/Created
 
 ```
-news-sentinel-bot/
+nickberg-terminal/
 ├── .env (created with API keys)
 ├── demo_openbb.py (created)
 ├── OPENBB_INTEGRATION.md (created)

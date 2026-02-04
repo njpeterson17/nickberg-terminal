@@ -51,7 +51,7 @@ try:
 except ImportError:
     ASYNC_AVAILABLE = False
 
-class NewsSentinelBot:
+class NickbergTerminal:
     def __init__(self, config_path: str = "config/settings.yaml"):
         self.config = self._load_config(config_path)
         self.use_async = os.getenv("USE_ASYNC_SCRAPER", "true").lower() == "true"
@@ -113,7 +113,7 @@ scraping:
 ## Testing
 
 ```bash
-cd /home/nick/news-sentinel-bot
+cd /home/nick/nickberg-terminal
 source .venv/bin/activate
 
 # Test async scraper

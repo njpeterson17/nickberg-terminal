@@ -157,7 +157,7 @@ Edit `src/main.py` to include economic alerts:
 ```python
 from fred_alerts import EconomicAlertManager
 
-class NewsSentinelBot:
+class NickbergTerminal:
     def __init__(self, config_path: str = "config/settings.yaml"):
         # ... existing init ...
         self.economic_alert_manager = EconomicAlertManager()
@@ -176,7 +176,7 @@ class NewsSentinelBot:
 ### Test OpenBB Market Data
 
 ```bash
-cd /home/nick/news-sentinel-bot
+cd /home/nick/nickberg-terminal
 source .venv/bin/activate
 python3 << 'EOF'
 import sys

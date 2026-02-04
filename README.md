@@ -137,7 +137,7 @@ alerts:
 
 # Database settings
 database:
-  path: "data/news_sentinel.db"
+  path: "data/nickberg.db"
   retention_days: 30
 ```
 
@@ -379,12 +379,12 @@ pre-commit run --all-files
 
 ```bash
 # Run every 15 minutes
-*/15 * * * * cd /path/to/news-sentinel-bot && /path/to/.venv/bin/python src/main.py schedule >> logs/cron.log 2>&1
+*/15 * * * * cd /path/to/nickberg-terminal && /path/to/.venv/bin/python src/main.py schedule >> logs/cron.log 2>&1
 ```
 
 ### Using Systemd Timer
 
-Create `/etc/systemd/system/news-sentinel.service`:
+Create `/etc/systemd/system/nickberg.service`:
 
 ```ini
 [Unit]
@@ -392,12 +392,12 @@ Description=Nickberg Terminal
 
 [Service]
 Type=oneshot
-WorkingDirectory=/path/to/news-sentinel-bot
+WorkingDirectory=/path/to/nickberg-terminal
 ExecStart=/path/to/.venv/bin/python src/main.py schedule
 User=your-user
 ```
 
-Create `/etc/systemd/system/news-sentinel.timer`:
+Create `/etc/systemd/system/nickberg.timer`:
 
 ```ini
 [Unit]
@@ -411,7 +411,7 @@ OnUnitActiveSec=15min
 WantedBy=timers.target
 ```
 
-Enable: `sudo systemctl enable --now news-sentinel.timer`
+Enable: `sudo systemctl enable --now nickberg.timer`
 
 ## Troubleshooting
 
@@ -425,7 +425,7 @@ Enable: `sudo systemctl enable --now news-sentinel.timer`
 - Change `min_articles_for_alert` (default: 3)
 
 **Database issues?**
-- Delete `data/news_sentinel.db` to reset
+- Delete `data/nickberg.db` to reset
 - Check disk space and permissions
 
 **API authentication failing?**

@@ -86,7 +86,7 @@ def app_and_db(mock_database, mock_config, tmp_path):
     if "web.app" in sys.modules:
         del sys.modules["web.app"]
 
-    with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": ""}, clear=False):
+    with patch.dict(os.environ, {"NICKBERG_API_KEY": ""}, clear=False):
         with patch("web.app.CONFIG_PATH", config_path):
             with patch("web.app.Database") as MockDatabase:
                 MockDatabase.return_value = mock_database

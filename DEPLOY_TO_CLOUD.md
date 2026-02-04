@@ -61,7 +61,7 @@ git push -u origin main
    - **Size**: 1 GB
 5. Add **Environment Variables**:
    - `FLASK_ENV`: `production`
-   - `NEWS_SENTINEL_DB_PATH`: `/opt/render/project/src/data/news_sentinel.db`
+   - `NICKBERG_DB_PATH`: `/opt/render/project/src/data/nickberg.db`
    - `SCRAPER_MODE`: `schedule`
 6. Click **"Create Web Service"**
 
@@ -70,7 +70,7 @@ git push -u origin main
 1. Click **"New +"** → **"Background Worker"**
 2. Use same GitHub repo
 3. Configure:
-   - **Name**: `news-sentinel-scraper`
+   - **Name**: `nickberg-scraper`
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `python src/main.py run`
@@ -82,7 +82,7 @@ git push -u origin main
 5. Add environment variables:
    - `SCRAPER_MODE`: `continuous`
    - `SCRAPER_INTERVAL_SECONDS`: `900`
-   - `NEWS_SENTINEL_DB_PATH`: `/opt/render/project/src/data/news_sentinel.db`
+   - `NICKBERG_DB_PATH`: `/opt/render/project/src/data/nickberg.db`
 6. Click **"Create Worker"**
 
 ### Step 5: Access Your Dashboard
@@ -145,10 +145,10 @@ Set these in your cloud provider's dashboard:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `FLASK_ENV` | Environment mode | `production` |
-| `NEWS_SENTINEL_DB_PATH` | Database location | `/opt/render/project/src/data/news_sentinel.db` |
+| `NICKBERG_DB_PATH` | Database location | `/opt/render/project/src/data/nickberg.db` |
 | `SCRAPER_MODE` | Scraper behavior | `continuous` or `schedule` |
 | `SCRAPER_INTERVAL_SECONDS` | Scrape frequency | `900` (15 min) |
-| `NEWS_SENTINEL_API_KEY` | API security | `your-secret-key` |
+| `NICKBERG_API_KEY` | API security | `your-secret-key` |
 | `NEWS_BOT_TELEGRAM_TOKEN` | Telegram bot token | `123456:ABC...` |
 | `NEWS_BOT_TELEGRAM_CHAT_ID` | Telegram chat ID | `-100123456789` |
 | `FMP_API_KEY` | Financial data API | `your-fmp-key` |
@@ -163,7 +163,7 @@ Set these in your cloud provider's dashboard:
 
 **Cause**: Disk not mounted correctly
 
-**Fix**: Check mount path matches `NEWS_SENTINEL_DB_PATH`
+**Fix**: Check mount path matches `NICKBERG_DB_PATH`
 
 ### Issue: Scraper not running
 
@@ -274,7 +274,7 @@ threading.Thread(target=keep_alive, daemon=True).start()
 
 Before going live:
 
-- [ ] Set `NEWS_SENTINEL_API_KEY` (don't leave empty)
+- [ ] Set `NICKBERG_API_KEY` (don't leave empty)
 - [ ] Remove any hardcoded API keys from code
 - [ ] Use environment variables for all secrets
 - [ ] Enable HTTPS (automatic on Render/Railway)

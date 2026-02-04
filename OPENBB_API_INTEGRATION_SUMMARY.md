@@ -69,7 +69,7 @@ MARKET_DATA_PROVIDER=openbb
 ## ⚠️ Known Issues
 
 ### Polygon News - Compatibility Issue
-There's a version compatibility issue with the `openbb-news` extension in the news-sentinel-bot virtual environment:
+There's a version compatibility issue with the `openbb-news` extension in the nickberg-terminal virtual environment:
 ```
 Error: cannot import name 'OBBject_CompanyNews'
 ```
@@ -161,7 +161,7 @@ openbb-fmp>=1.5.2
 
 3. **For Polygon/FRED fixes** (optional):
    - These work in the main openbb_env environment
-   - The issue is specific to the news-sentinel-bot venv
+   - The issue is specific to the nickberg-terminal venv
    - Can be resolved by using the same OpenBB version/setup as main env
 
 ## 📈 Value Added

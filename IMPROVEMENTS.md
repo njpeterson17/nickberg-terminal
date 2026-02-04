@@ -49,13 +49,13 @@ class ArticleRepository:
 ### 6. **Add Dependency Injection**
 ```python
 # Current - hardcoded dependencies
-class NewsSentinelBot:
+class NickbergTerminal:
     def __init__(self, config_path):
         self.db = Database(config["database"]["path"])
         self.scraper = ScraperManager(config_path)
 
 # Better - inject dependencies
-class NewsSentinelBot:
+class NickbergTerminal:
     def __init__(self, db: Database, scraper: ScraperManager, ...):
         self.db = db
         self.scraper = scraper
@@ -417,7 +417,7 @@ except Exception:
 ### 35. **Database Backups**
 ```bash
 # Daily automated backups
-0 2 * * * sqlite3 news_sentinel.db ".backup 'backups/news_sentinel_$(date +%Y%m%d).db'"
+0 2 * * * sqlite3 nickberg.db ".backup 'backups/nickberg_$(date +%Y%m%d).db'"
 ```
 **Impact:** Recover from data corruption
 
@@ -442,7 +442,7 @@ def test_end_to_end_scrape():
     with responses.RequestsMock() as rsps:
         rsps.add(responses.GET, "https://...", body=mock_rss)
         
-        bot = NewsSentinelBot()
+        bot = NickbergTerminal()
         bot.run()
         
         # Verify articles saved to DB

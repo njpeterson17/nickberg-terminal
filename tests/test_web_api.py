@@ -78,7 +78,7 @@ def app_and_db(mock_database, mock_config, tmp_path):
         del sys.modules["web.app"]
 
     # Patch the config path and database before importing app
-    with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": ""}, clear=False):
+    with patch.dict(os.environ, {"NICKBERG_API_KEY": ""}, clear=False):
         with patch("web.app.CONFIG_PATH", config_path):
             with patch("web.app.Database") as MockDatabase:
                 MockDatabase.return_value = mock_database
@@ -352,7 +352,7 @@ class TestApiAuthentication:
             del sys.modules["web.app"]
 
         # Need to patch at the module level where API_KEY is defined
-        with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": "test-key"}, clear=False):
+        with patch.dict(os.environ, {"NICKBERG_API_KEY": "test-key"}, clear=False):
             with patch("web.app.CONFIG_PATH", config_path):
                 with patch("web.app.Database", return_value=mock_database):
                     with patch("web.app.API_KEY", "test-key"):
@@ -381,7 +381,7 @@ class TestApiAuthentication:
         if "web.app" in sys.modules:
             del sys.modules["web.app"]
 
-        with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": "correct-key"}, clear=False):
+        with patch.dict(os.environ, {"NICKBERG_API_KEY": "correct-key"}, clear=False):
             with patch("web.app.CONFIG_PATH", config_path):
                 with patch("web.app.Database", return_value=mock_database):
                     with patch("web.app.API_KEY", "correct-key"):
@@ -410,7 +410,7 @@ class TestApiAuthentication:
         if "web.app" in sys.modules:
             del sys.modules["web.app"]
 
-        with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": "valid-key"}, clear=False):
+        with patch.dict(os.environ, {"NICKBERG_API_KEY": "valid-key"}, clear=False):
             with patch("web.app.CONFIG_PATH", config_path):
                 with patch("web.app.Database", return_value=mock_database):
                     with patch("web.app.API_KEY", "valid-key"):
@@ -436,7 +436,7 @@ class TestApiAuthentication:
         if "web.app" in sys.modules:
             del sys.modules["web.app"]
 
-        with patch.dict(os.environ, {"NEWS_SENTINEL_API_KEY": "query-key"}, clear=False):
+        with patch.dict(os.environ, {"NICKBERG_API_KEY": "query-key"}, clear=False):
             with patch("web.app.CONFIG_PATH", config_path):
                 with patch("web.app.Database", return_value=mock_database):
                     with patch("web.app.API_KEY", "query-key"):

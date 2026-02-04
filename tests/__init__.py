@@ -1,1 +1,1 @@
-# Tests package for news-sentinel-bot
+# Tests package for nickberg-terminal

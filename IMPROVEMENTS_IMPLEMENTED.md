@@ -23,7 +23,7 @@ Added 6 performance indexes to SQLite database:
 | Alerts (24h) | ~2-3ms | 0.04ms | **50-75x faster** |
 
 ### Files Modified
-- Database: `data/news_sentinel.db` (indexes added)
+- Database: `data/nickberg.db` (indexes added)
 
 ---
 
@@ -121,8 +121,8 @@ print(f'Scraped {len(articles)} articles')
 ## Files Changed
 
 ```
-news-sentinel-bot/
-├── data/news_sentinel.db           (+6 indexes)
+nickberg-terminal/
+├── data/nickberg.db           (+6 indexes)
 ├── src/async_scraper.py            (NEW - 1,109 lines)
 ├── ASYNC_SCRAPER_USAGE.md          (NEW - documentation)
 └── IMPROVEMENTS_IMPLEMENTED.md     (NEW - this file)

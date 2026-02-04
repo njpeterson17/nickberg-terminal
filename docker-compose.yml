@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: nickberg-terminal:latest
-    container_name: news-sentinel-scraper
+    container_name: nickberg-scraper
     command: scraper
 
     # Environment variables
@@ -67,7 +67,7 @@ services:
 
     # Network
     networks:
-      - news-sentinel-network
+      - nickberg-network
 
     # Logging configuration
     logging:
@@ -85,7 +85,7 @@ services:
       context: .
       dockerfile: Dockerfile
     image: nickberg-terminal:latest
-    container_name: news-sentinel-web
+    container_name: nickberg-web
     command: web
 
     # Environment variables
@@ -144,7 +144,7 @@ services:
 
     # Network
     networks:
-      - news-sentinel-network
+      - nickberg-network
 
     # Logging configuration
     logging:
@@ -159,15 +159,15 @@ services:
 volumes:
   news-data:
     driver: local
-    name: news-sentinel-data
+    name: nickberg-data
   news-logs:
     driver: local
-    name: news-sentinel-logs
+    name: nickberg-logs
 
 # =============================================================================
 # Networks
 # =============================================================================
 networks:
-  news-sentinel-network:
+  nickberg-network:
     driver: bridge
-    name: news-sentinel-network
+    name: nickberg-network

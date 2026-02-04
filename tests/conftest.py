@@ -1,5 +1,5 @@
 """
-Shared pytest fixtures for news-sentinel-bot tests.
+Shared pytest fixtures for nickberg-terminal tests.
 """
 
 import pytest

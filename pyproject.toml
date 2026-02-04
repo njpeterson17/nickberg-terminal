@@ -1,5 +1,5 @@
 [project]
-name = "news-sentinel-bot"
+name = "nickberg-terminal"
 version = "0.1.0"
 description = "A news monitoring bot that detects patterns in company coverage"
 requires-python = ">=3.11"
