@@ -160,72 +160,17 @@
         <div id="dashboardTab" class="tab-content active">
             <!-- Main Terminal Grid -->
             <div class="terminal-grid">
-                <!-- Twitter/X Financial Feed Panel (Full Size) -->
-                <div class="panel twitter-panel-full">
+                <!-- Bluesky Financial Feed Panel (Full Size) -->
+                <div class="panel bluesky-panel-full">
                     <div class="panel-header">
-                        <h2><i class="fab fa-twitter"></i> FINANCIAL TWITTER</h2>
-                        <span class="badge" style="background: #1da1f2; color: white;">LIVE</span>
+                        <h2><i class="fas fa-cloud"></i> BLUESKY FINANCE</h2>
+                        <span class="badge" style="background: #1185fe; color: white;">LIVE</span>
                     </div>
                     <div class="panel-body" style="padding: 0;">
-                        <div class="twitter-feed-full" id="twitterFeedFull">
-                            <a class="twitter-timeline" 
-                               data-height="600"
-                               data-theme="dark"
-                               data-chrome="noheader nofooter noborders transparent"
-                               href="https://twitter.com/i/lists/1690667842748379272?ref_src=twsrc%5Etfw">
-                               Loading Financial Twitter...
-                            </a>
-                            <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
-                        </div>
-                        <!-- Fallback/Loading State -->
-                        <div class="twitter-fallback-full" id="twitterFallbackFull" style="display: none;">
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@DeItaone</span>
-                                    <span class="tweet-time-bloomberg">2m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">BREAKING: $AAPL announces record Q1 earnings, beats estimates by 15%</p>
-                            </div>
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@FirstSquawk</span>
-                                    <span class="tweet-time-bloomberg">5m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">$TSLA shares up 3% pre-market on delivery numbers</p>
-                            </div>
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@unusual_whales</span>
-                                    <span class="tweet-time-bloomberg">8m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">Unusual options activity detected on $NVDA ahead of earnings</p>
-                            </div>
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@bespokeinvest</span>
-                                    <span class="tweet-time-bloomberg">12m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">Market breadth remains strong with 75% of S&P 500 above 50-day MA</p>
-                            </div>
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@Strazza</span>
-                                    <span class="tweet-time-bloomberg">15m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">$BTC breaking above key resistance level at $43K</p>
-                            </div>
-                            <div class="simulated-tweet-bloomberg">
-                                <div class="tweet-header-bloomberg">
-                                    <i class="fab fa-twitter"></i>
-                                    <span class="tweet-user-bloomberg">@IGSquawk</span>
-                                    <span class="tweet-time-bloomberg">18m</span>
-                                </div>
-                                <p class="tweet-text-bloomberg">ECB leaves rates unchanged as expected, EUR/USD barely moving</p>
+                        <div class="bluesky-feed-full" id="blueskyFeedFull">
+                            <div class="bluesky-loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>Loading Bluesky feed...</span>
                             </div>
                         </div>
                     </div>

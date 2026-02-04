@@ -133,38 +133,268 @@ function debounce(func, wait) {
 
 async function initDashboard() {
     await loadAllData();
-    initTwitterWidget();
+    initBlueskyFeed();
 }
 
-// Initialize Twitter Widget with fallback
-function initTwitterWidget() {
-    const twitterFeed = document.getElementById('twitterFeed');
-    const twitterFallback = document.getElementById('twitterFallback');
+// Bluesky Financial Accounts to follow
+const BLUESKY_FINANCIAL_ACCOUNTS = [
+    { handle: 'deitaone.bsky.social', name: 'DeItaOne', display: 'DeItaOne' },
+    { handle: 'firstsquawk.bsky.social', name: 'First Squawk', display: 'First Squawk' },
+    { handle: 'unusualwhales.bsky.social', name: 'Unusual Whales', display: 'Unusual Whales' },
+    { handle: 'bespokeinvest.bsky.social', name: 'Bespoke Invest', display: 'Bespoke Invest' },
+    { handle: 'strazza.bsky.social', name: 'Strazza', display: 'Strazza' },
+    { handle: 'stocktwits.bsky.social', name: 'StockTwits', display: 'StockTwits' },
+    { handle: 'benzinga.bsky.social', name: 'Benzinga', display: 'Benzinga' },
+    { handle: 'traderstewie.bsky.social', name: 'Trader Stewie', display: 'Trader Stewie' },
+    { handle: 'fintwit.bsky.social', name: 'FinTwit', display: 'FinTwit' },
+    { handle: 'markminervini.bsky.social', name: 'Mark Minervini', display: 'Mark Minervini' },
+    { handle: 'ivanchart.bsky.social', name: 'Ivan Chart', display: 'Ivan Chart' },
+    { handle: 'sentiment.bsky.social', name: 'Sentiment', display: 'Sentiment' }
+];
+
+// Cache for Bluesky posts
+let blueskyCache = {
+    posts: [],
+    timestamp: 0,
+    dids: {}  // Cache for DID lookups
+};
+
+const BLUESKY_CACHE_TTL = 120000; // 2 minutes
+
+// Initialize Bluesky Feed
+async function initBlueskyFeed() {
+    const feedContainer = document.getElementById('blueskyFeedFull');
+    if (!feedContainer) return;
     
-    // Check if Twitter widgets.js loaded successfully
-    const checkTwitterLoaded = () => {
-        return typeof twttr !== 'undefined' && twttr.widgets;
-    };
+    // Load posts immediately
+    await loadBlueskyFeed(feedContainer);
     
-    // Wait for Twitter widget to load (or fail)
-    setTimeout(() => {
-        if (!checkTwitterLoaded()) {
-            // Twitter didn't load, show fallback
-            console.log('Twitter widget not loaded, showing fallback');
-            if (twitterFeed) twitterFeed.style.display = 'none';
-            if (twitterFallback) twitterFallback.style.display = 'block';
-        }
-    }, 5000); // Check after 5 seconds
-    
-    // Also set up a listener for when Twitter does load
-    if (typeof twttr !== 'undefined') {
-        twttr.ready(function(twttr) {
-            console.log('Twitter widget loaded successfully');
-            // Widget loaded, ensure feed is visible
-            if (twitterFeed) twitterFeed.style.display = 'block';
-            if (twitterFallback) twitterFallback.style.display = 'none';
-        });
+    // Refresh every 2 minutes
+    setInterval(() => {
+        loadBlueskyFeed(feedContainer);
+    }, BLUESKY_CACHE_TTL);
+}
+
+// Load Bluesky posts from financial accounts
+async function loadBlueskyFeed(container) {
+    // Check cache first
+    if (Date.now() - blueskyCache.timestamp < BLUESKY_CACHE_TTL && blueskyCache.posts.length > 0) {
+        renderBlueskyPosts(container, blueskyCache.posts);
+        return;
     }
+    
+    try {
+        const allPosts = [];
+        
+        // Fetch posts from each account
+        for (const account of BLUESKY_FINANCIAL_ACCOUNTS) {
+            try {
+                const posts = await fetchBlueskyPosts(account.handle, 5);
+                allPosts.push(...posts);
+            } catch (error) {
+                console.warn(`Failed to fetch posts for ${account.handle}:`, error);
+            }
+        }
+        
+        // Sort by date (newest first)
+        allPosts.sort((a, b) => new Date(b.indexedAt) - new Date(a.indexedAt));
+        
+        // Take top 30 posts
+        const topPosts = allPosts.slice(0, 30);
+        
+        // Update cache
+        blueskyCache.posts = topPosts;
+        blueskyCache.timestamp = Date.now();
+        
+        // Render
+        renderBlueskyPosts(container, topPosts);
+        
+    } catch (error) {
+        console.error('Error loading Bluesky feed:', error);
+        showBlueskyError(container, 'Failed to load Bluesky feed. Will retry shortly.');
+    }
+}
+
+// Fetch posts from a specific Bluesky account
+async function fetchBlueskyPosts(handle, limit = 5) {
+    // First, resolve the handle to a DID
+    let did = blueskyCache.dids[handle];
+    if (!did) {
+        const resolveResponse = await fetch(`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
+        if (!resolveResponse.ok) throw new Error(`Failed to resolve handle: ${handle}`);
+        const resolveData = await resolveResponse.json();
+        did = resolveData.did;
+        blueskyCache.dids[handle] = did;
+    }
+    
+    // Fetch author's feed
+    const feedResponse = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(did)}&limit=${limit}`);
+    if (!feedResponse.ok) throw new Error(`Failed to fetch feed for: ${handle}`);
+    const feedData = await feedResponse.json();
+    
+    // Get account info
+    const account = BLUESKY_FINANCIAL_ACCOUNTS.find(a => a.handle === handle) || { name: handle, display: handle };
+    
+    // Process posts
+    return feedData.feed.map(item => {
+        const post = item.post;
+        return {
+            uri: post.uri,
+            cid: post.cid,
+            text: post.record?.text || '',
+            createdAt: post.record?.createdAt,
+            indexedAt: post.indexedAt,
+            author: {
+                did: post.author.did,
+                handle: post.author.handle,
+                displayName: post.author.displayName || account.display,
+                avatar: post.author.avatar,
+                name: account.name
+            },
+            embed: post.embed,
+            replyCount: post.replyCount || 0,
+            repostCount: post.repostCount || 0,
+            likeCount: post.likeCount || 0,
+            isRepost: item.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
+            repostedBy: item.reason?.by
+        };
+    });
+}
+
+// Render Bluesky posts to the container
+function renderBlueskyPosts(container, posts) {
+    if (!posts || posts.length === 0) {
+        container.innerHTML = `
+            <div class="bluesky-empty">
+                <i class="fas fa-cloud"></i>
+                <span>No posts available</span>
+            </div>
+        `;
+        return;
+    }
+    
+    const html = posts.map(post => {
+        const timeAgo = formatTimeAgo(new Date(post.indexedAt));
+        const avatarUrl = post.author.avatar || '';
+        const initial = (post.author.displayName || post.author.handle).charAt(0).toUpperCase();
+        
+        // Highlight stock tickers
+        const highlightedText = highlightTickers(escapeHtml(post.text));
+        
+        // Build repost indicator
+        let repostHtml = '';
+        if (post.isRepost && post.repostedBy) {
+            repostHtml = `
+                <div class="bluesky-repost-indicator">
+                    <i class="fas fa-retweet"></i>
+                    <span>Reposted by ${escapeHtml(post.repostedBy.displayName || post.repostedBy.handle)}</span>
+                </div>
+            `;
+        }
+        
+        // Build embed (image)
+        let embedHtml = '';
+        if (post.embed?.$type === 'app.bsky.embed.images#view' && post.embed.images?.length > 0) {
+            const image = post.embed.images[0];
+            embedHtml = `
+                <div class="bluesky-embed-image">
+                    <img src="${image.thumb}" alt="${escapeHtml(image.alt || '')}" loading="lazy">
+                </div>
+            `;
+        } else if (post.embed?.$type === 'app.bsky.embed.external#view') {
+            const external = post.embed.external;
+            embedHtml = `
+                <div class="bluesky-quote-post">
+                    <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">
+                        <i class="fas fa-link"></i> ${escapeHtml(external.title || 'Link')}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-dim);">${escapeHtml(external.description || '').substring(0, 100)}...</div>
+                </div>
+            `;
+        }
+        
+        return `
+            <div class="bluesky-post" data-uri="${post.uri}">
+                ${repostHtml}
+                <div class="bluesky-post-header">
+                    <div class="bluesky-avatar">
+                        ${avatarUrl ? `<img src="${avatarUrl}" alt="" loading="lazy">` : initial}
+                    </div>
+                    <div class="bluesky-user-info">
+                        <div class="bluesky-display-name">${escapeHtml(post.author.displayName || post.author.handle)}</div>
+                        <div class="bluesky-handle">@${post.author.handle}</div>
+                    </div>
+                    <div class="bluesky-timestamp">${timeAgo}</div>
+                </div>
+                <div class="bluesky-post-content">${highlightedText}</div>
+                ${embedHtml}
+                <div class="bluesky-post-actions">
+                    <div class="bluesky-action" title="Reply">
+                        <i class="far fa-comment"></i>
+                        <span>${formatCount(post.replyCount)}</span>
+                    </div>
+                    <div class="bluesky-action" title="Repost">
+                        <i class="fas fa-retweet"></i>
+                        <span>${formatCount(post.repostCount)}</span>
+                    </div>
+                    <div class="bluesky-action" title="Like">
+                        <i class="far fa-heart"></i>
+                        <span>${formatCount(post.likeCount)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = html;
+}
+
+// Show error state
+function showBlueskyError(container, message) {
+    container.innerHTML = `
+        <div class="bluesky-error">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>${message}</span>
+        </div>
+    `;
+}
+
+// Helper: Format time ago
+function formatTimeAgo(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return 'now';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString();
+}
+
+// Helper: Format count (1.2k, 3.4M, etc.)
+function formatCount(count) {
+    if (!count || count === 0) return '';
+    if (count < 1000) return count.toString();
+    if (count < 1000000) return (count / 1000).toFixed(1) + 'k';
+    return (count / 1000000).toFixed(1) + 'M';
+}
+
+// Helper: Escape HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Helper: Highlight stock tickers ($TSLA, $AAPL, etc.)
+function highlightTickers(text) {
+    if (!text) return '';
+    // Match $TICKER patterns
+    return text.replace(/\$([A-Za-z]{1,5})/g, '<span class="ticker">$$$1</span>');
 }
 
 function setupEventListeners() {
@@ -410,8 +640,7 @@ async function loadAllData() {
             loadMarketMonitor(),
             loadTopCompanies(),
             loadArticles(),
-            loadSentiment(),
-            loadTrendingKeywords()
+            loadSentiment()
         ]);
         
         updateLastUpdated();
