@@ -138,13 +138,44 @@ async function initDashboard() {
 
 // Bluesky Financial Accounts to follow
 const BLUESKY_FINANCIAL_ACCOUNTS = [
+    // Options & Flow
     { handle: 'unusualwhales.bsky.social', name: 'Unusual Whales', display: 'Unusual Whales' },
+    { handle: 'spotgamma.bsky.social', name: 'SpotGamma', display: 'SpotGamma' },
+    { handle: 'tradytorp.bsky.social', name: 'Trady Torp', display: 'Trady' },
+    { handle: 'carterbraxton.bsky.social', name: 'Carter Braxton', display: 'Carter Braxton' },
+    
+    // Macro & Markets
     { handle: 'strazza.bsky.social', name: 'Strazza', display: 'Strazza' },
-    { handle: 'stocktwits.bsky.social', name: 'StockTwits', display: 'StockTwits' },
+    { handle: 'carnage4life.bsky.social', name: 'Carnage4Life', display: 'Carnage4Life' },
+    { handle: 'truflation.bsky.social', name: 'Truflation', display: 'Truflation' },
+    { handle: 'kobeissiletter.bsky.social', name: 'Kobeissi Letter', display: 'Kobeissi Letter' },
+    { handle: 'dailyreckoning.bsky.social', name: 'Daily Reckoning', display: 'Daily Reckoning' },
+    
+    // News & Media
     { handle: 'benzinga.bsky.social', name: 'Benzinga', display: 'Benzinga' },
-    { handle: 'fintwit.bsky.social', name: 'FinTwit', display: 'FinTwit' },
+    { handle: 'marketwatch.bsky.social', name: 'MarketWatch', display: 'MarketWatch' },
+    { handle: 'morningbrew.bsky.social', name: 'Morning Brew', display: 'Morning Brew' },
+    { handle: 'theblock.bsky.social', name: 'The Block', display: 'The Block' },
+    { handle: 'coindesk.bsky.social', name: 'CoinDesk', display: 'CoinDesk' },
+    
+    // Trading & Technical Analysis
+    { handle: 'stocktwits.bsky.social', name: 'StockTwits', display: 'StockTwits' },
     { handle: 'markminervini.bsky.social', name: 'Mark Minervini', display: 'Mark Minervini' },
-    { handle: 'sentiment.bsky.social', name: 'Sentiment', display: 'Sentiment' }
+    { handle: 'ivanhoff.bsky.social', name: 'Ivanhoff', display: 'Ivanhoff' },
+    { handle: 'brianferoldi.bsky.social', name: 'Brian Feroldi', display: 'Brian Feroldi' },
+    { handle: 'mrblondtrading.bsky.social', name: 'MrBlond', display: 'MrBlond' },
+    
+    // Sentiment & Data
+    { handle: 'sentiment.bsky.social', name: 'Sentiment', display: 'Sentiment' },
+    { handle: 'fintwit.bsky.social', name: 'FinTwit', display: 'FinTwit' },
+    { handle: 'retailmind.bsky.social', name: 'Retail Mind', display: 'Retail Mind' },
+    { handle: 'finchat.bsky.social', name: 'FinChat', display: 'FinChat' },
+    
+    // Crypto & Web3
+    { handle: 'sassal0x.bsky.social', name: 'sassal.eth', display: 'sassal' },
+    { handle: 'dcinvestor.bsky.social', name: 'DCinvestor', display: 'DCinvestor' },
+    { handle: 'degentrading.bsky.social', name: 'Degen Trading', display: 'Degen' },
+    { handle: 'cryptocobain.bsky.social', name: 'Crypto Cobain', display: 'Cobain' }
 ];
 
 // Cache for Bluesky posts
