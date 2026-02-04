@@ -39,7 +39,7 @@ services:
         value: continuous
       - key: SCRAPER_INTERVAL_SECONDS
         value: 900
-      - key: NEWS_SENTINEL_DB_PATH
+      - key: NICKBERG_DB_PATH
         value: /opt/render/project/src/data/nickberg.db
     disk:
       name: data
