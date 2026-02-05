@@ -1,0 +1,3115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0e1a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Nickberg">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Nickberg Terminal">
+    <meta name="msapplication-TileColor" content="#0a0e1a">
+    <meta name="msapplication-tap-highlight" content="no">
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/static/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
+    <link rel="apple-touch-icon" href="/static/img/icon-192x192.png">
+    
+    <title>Nickberg Terminal</title>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Mobile Styles -->
+    <link rel="stylesheet" href="/static/css/mobile.css">
+    
+    <style>
+        /* ==========================================================================
+           CSS Variables - Bloomberg Terminal Dark Theme
+           ========================================================================== */
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1f2937;
+            --bg-elevated: #283347;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-primary: #3b82f6;
+            --accent-success: #22c55e;
+            --accent-warning: #f59e0b;
+            --accent-danger: #ef4444;
+            --accent-info: #06b6d4;
+            --border-color: #334155;
+            --border-light: #1e293b;
+            
+            /* Safe area insets for notched devices */
+            --safe-area-top: env(safe-area-inset-top, 0px);
+            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-left: env(safe-area-inset-left, 0px);
+            --safe-area-right: env(safe-area-inset-right, 0px);
+            
+            /* Touch targets */
+            --touch-target: 44px;
+            --bottom-nav-height: 64px;
+            --header-height: 56px;
+        }
+
+        /* ==========================================================================
+           Reset & Base Styles
+           ========================================================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+        }
+
+        html {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ==========================================================================
+           App Container
+           ========================================================================== */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh; /* Dynamic viewport height for mobile */
+            padding-top: var(--safe-area-top);
+            padding-bottom: var(--safe-area-bottom);
+        }
+
+        /* ==========================================================================
+           Header
+           ========================================================================== */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: var(--header-height);
+            padding: 0 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-light);
+            position: relative;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .menu-btn {
+            width: var(--touch-target);
+            height: var(--touch-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .logo-icon {
+            font-size: 24px;
+            color: var(--accent-primary);
+        }
+
+        .logo-text {
+            font-size: 18px;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-info));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn {
+            width: var(--touch-target);
+            height: var(--touch-target);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .header-btn:active {
+            transform: scale(0.95);
+            background: var(--bg-elevated);
+        }
+
+        .header-btn.primary {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        /* ==========================================================================
+           Main Content Area
+           ========================================================================== */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+
+        .main-content::-webkit-scrollbar {
+            display: none;
+        }
+
+        /* Pull to refresh indicator */
+        .pull-refresh {
+            position: absolute;
+            top: -60px;
+            left: 0;
+            right: 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+
+        .pull-refresh.visible {
+            transform: translateY(60px);
+        }
+
+        .pull-refresh-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ==========================================================================
+           Tab Views
+           ========================================================================== */
+        .tab-view {
+            display: none;
+            padding: 12px 16px 80px;
+            min-height: 100%;
+        }
+
+        .tab-view.active {
+            display: block;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================================================
+           Stats Row (Compact)
+           ========================================================================== */
+        .stats-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            overflow-x: auto;
+            padding: 4px 0;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .stats-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .stat-chip {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            min-width: 120px;
+        }
+
+        .stat-chip-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .stat-chip-icon.articles { background: rgba(59, 130, 246, 0.15); color: var(--accent-primary); }
+        .stat-chip-icon.mentions { background: rgba(34, 197, 94, 0.15); color: var(--accent-success); }
+        .stat-chip-icon.alerts { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+        .stat-chip-icon.recent { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
+
+        .stat-chip-value {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-chip-label {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* ==========================================================================
+           Quick Filters (Horizontal Scrollable Chips)
+           ========================================================================== */
+        .filters-container {
+            margin-bottom: 16px;
+        }
+
+        .filters-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .filters-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-chip {
+            flex: 0 0 auto;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .filter-chip:active {
+            transform: scale(0.95);
+        }
+
+        .filter-chip.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+
+        /* ==========================================================================
+           Cards
+           ========================================================================== */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card:active {
+            transform: scale(0.99);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .card-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .card-title i {
+            color: var(--accent-primary);
+            font-size: 14px;
+        }
+
+        .card-badge {
+            padding: 4px 10px;
+            background: var(--accent-danger);
+            color: white;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .card-badge.live {
+            background: var(--accent-danger);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .card-body {
+            padding: 16px;
+        }
+
+        .card-expand-btn {
+            width: 100%;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-top: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        /* ==========================================================================
+           Collapsible Sections
+           ========================================================================== */
+        .collapsible {
+            margin-bottom: 12px;
+        }
+
+        .collapsible-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .collapsible-header:active {
+            background: var(--bg-elevated);
+        }
+
+        .collapsible-header.expanded {
+            border-radius: 16px 16px 0 0;
+            border-bottom: none;
+        }
+
+        .collapsible-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .collapsible-title i {
+            color: var(--accent-primary);
+        }
+
+        .collapsible-icon {
+            color: var(--text-secondary);
+            transition: transform 0.2s ease;
+        }
+
+        .collapsible-header.expanded .collapsible-icon {
+            transform: rotate(180deg);
+        }
+
+        .collapsible-content {
+            display: none;
+            background: var(--bg-card);
+            border-radius: 0 0 16px 16px;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            padding: 0 16px 16px;
+        }
+
+        .collapsible-content.expanded {
+            display: block;
+            animation: slideDown 0.2s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================================================
+           Alerts List
+           ========================================================================== */
+        .alerts-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .alert-card {
+            padding: 14px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+            border-left: 3px solid;
+            position: relative;
+        }
+
+        .alert-card.high { border-left-color: var(--accent-danger); }
+        .alert-card.medium { border-left-color: var(--accent-warning); }
+        .alert-card.low { border-left-color: var(--accent-info); }
+
+        .alert-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .alert-type {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .alert-severity {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .alert-severity.high { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+        .alert-severity.medium { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
+        .alert-severity.low { background: rgba(6, 182, 212, 0.15); color: var(--accent-info); }
+
+        .alert-message {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .alert-meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .alert-tickers {
+            display: flex;
+            gap: 6px;
+        }
+
+        .ticker-tag {
+            padding: 2px 8px;
+            background: var(--bg-card);
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        /* ==========================================================================
+           News Feed (Card Style)
+           ========================================================================== */
+        .news-feed {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .news-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+
+        .news-card:active {
+            transform: scale(0.99);
+        }
+
+        .news-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .news-source-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .news-source {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .source-badge {
+            padding: 4px 10px;
+            background: var(--bg-elevated);
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .news-time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .news-title {
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+
+        .news-body {
+            padding: 12px 16px;
+        }
+
+        .news-excerpt {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .news-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-light);
+        }
+
+        .news-mentions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .mention-badge {
+            padding: 4px 10px;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-success);
+        }
+
+        .sentiment-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .sentiment-indicator.positive { color: var(--accent-success); }
+        .sentiment-indicator.negative { color: var(--accent-danger); }
+        .sentiment-indicator.neutral { color: var(--text-secondary); }
+
+        /* Infinite scroll loading */
+        .loading-more {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            gap: 8px;
+        }
+
+        .loading-spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--border-color);
+            border-top-color: var(--accent-primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* ==========================================================================
+           Charts (Mobile Optimized)
+           ========================================================================== */
+        .chart-container {
+            height: 220px;
+            position: relative;
+        }
+
+        .chart-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .chart-tab {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-elevated);
+            border: none;
+            border-radius: 10px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chart-tab:active {
+            transform: scale(0.98);
+        }
+
+        .chart-tab.active {
+            background: var(--accent-primary);
+            color: white;
+        }
+
+        /* ==========================================================================
+           Top Companies List
+           ========================================================================== */
+        .companies-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .company-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+        }
+
+        .company-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .company-rank {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
+        .company-rank.top {
+            background: var(--accent-warning);
+            color: var(--bg-primary);
+        }
+
+        .company-details {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .company-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .company-ticker {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .company-count {
+            padding: 6px 12px;
+            background: var(--accent-primary);
+            color: white;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* ==========================================================================
+           Sentiment Overview
+           ========================================================================== */
+        .sentiment-chart-wrapper {
+            height: 180px;
+            margin-bottom: 16px;
+        }
+
+        .sentiment-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .sentiment-stat {
+            text-align: center;
+            padding: 12px;
+            background: var(--bg-elevated);
+            border-radius: 12px;
+        }
+
+        .sentiment-stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .sentiment-stat-value.positive { color: var(--accent-success); }
+        .sentiment-stat-value.negative { color: var(--accent-danger); }
+        .sentiment-stat-value.neutral { color: var(--text-secondary); }
+
+        .sentiment-stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ==========================================================================
+           Markets Tab
+           ========================================================================== */
+        .market-indices {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .index-card {
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .index-name {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .index-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .index-change {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .index-change.positive {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--accent-success);
+        }
+
+        .index-change.negative {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-danger);
+        }
+
+        .watchlist-section {
+            margin-top: 16px;
+        }
+
+        .watchlist-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .section-title {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .watchlist-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 10px;
+        }
+
+        .watchlist-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .watchlist-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+
+        .watchlist-details h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .watchlist-details span {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .watchlist-price {
+            text-align: right;
+        }
+
+        .watchlist-price .price {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .watchlist-price .change {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .watchlist-price .change.positive { color: var(--accent-success); }
+        .watchlist-price .change.negative { color: var(--accent-danger); }
+
+        /* ==========================================================================
+           Settings Tab
+           ========================================================================== */
+        .settings-group {
+            margin-bottom: 24px;
+        }
+
+        .settings-group-title {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            padding-left: 4px;
+        }
+
+        .settings-list {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .settings-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .settings-item:last-child {
+            border-bottom: none;
+        }
+
+        .settings-item-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .settings-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-primary);
+            font-size: 16px;
+        }
+
+        .settings-label {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-label-text {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .settings-label-hint {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .settings-chevron {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 52px;
+            height: 30px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-elevated);
+            border-radius: 30px;
+            transition: 0.3s;
+            border: 1px solid var(--border-color);
+        }
+
+        .toggle-slider::before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 2px;
+            bottom: 2px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(22px);
+        }
+
+        /* Slider */
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slider-control input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: var(--bg-elevated);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-value {
+            min-width: 50px;
+            text-align: right;
+            font-weight: 600;
+            color: var(--accent-primary);
+        }
+
+        /* ==========================================================================
+           Bottom Navigation
+           ========================================================================== */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: calc(var(--bottom-nav-height) + var(--safe-area-bottom));
+            padding-bottom: var(--safe-area-bottom);
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-light);
+            position: relative;
+            z-index: 100;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: var(--bottom-nav-height);
+            gap: 4px;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .nav-item:active {
+            transform: scale(0.95);
+        }
+
+        .nav-item.active {
+            color: var(--accent-primary);
+        }
+
+        .nav-item i {
+            font-size: 22px;
+        }
+
+        .nav-item span {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .nav-indicator {
+            position: absolute;
+            top: 0;
+            width: 40px;
+            height: 3px;
+            background: var(--accent-primary);
+            border-radius: 0 0 3px 3px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .nav-item.active .nav-indicator {
+            opacity: 1;
+        }
+
+        /* ==========================================================================
+           Floating Action Button
+           ========================================================================== */
+        .fab {
+            position: fixed;
+            right: 20px;
+            bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 16px);
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+            border: none;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+            transition: all 0.2s ease;
+            z-index: 90;
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+            box-shadow: 0 2px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        /* ==========================================================================
+           Bottom Sheet
+           ========================================================================== */
+        .bottom-sheet-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 200;
+        }
+
+        .bottom-sheet-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .bottom-sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-secondary);
+            border-radius: 24px 24px 0 0;
+            padding: 20px;
+            padding-bottom: calc(20px + var(--safe-area-bottom));
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 201;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .bottom-sheet.active {
+            transform: translateY(0);
+        }
+
+        .bottom-sheet-handle {
+            width: 40px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            margin: 0 auto 20px;
+        }
+
+        .bottom-sheet-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .sheet-option {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sheet-option:active {
+            background: var(--bg-elevated);
+        }
+
+        .sheet-option-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--accent-primary);
+        }
+
+        .sheet-option-text {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        /* ==========================================================================
+           Side Menu (Hamburger)
+           ========================================================================== */
+        .side-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 200;
+        }
+
+        .side-menu-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .side-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 80%;
+            max-width: 320px;
+            background: var(--bg-secondary);
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 201;
+            overflow-y: auto;
+            padding-top: var(--safe-area-top);
+        }
+
+        .side-menu.active {
+            transform: translateX(0);
+        }
+
+        .side-menu-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .side-menu-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .side-menu-logo i {
+            font-size: 28px;
+            color: var(--accent-primary);
+        }
+
+        .side-menu-user {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--bg-card);
+            border-radius: 12px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .user-email {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .side-menu-nav {
+            padding: 16px;
+        }
+
+        .side-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .side-menu-item:active {
+            background: var(--bg-card);
+        }
+
+        .side-menu-item i {
+            width: 24px;
+            text-align: center;
+            color: var(--accent-primary);
+        }
+
+        /* ==========================================================================
+           Empty States
+           ========================================================================== */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .empty-state-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* ==========================================================================
+           Loading States
+           ========================================================================== */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skeleton-card {
+            height: 120px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-text {
+            height: 16px;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-text.short {
+            width: 60%;
+        }
+
+        /* ==========================================================================
+           Toast Notifications
+           ========================================================================== */
+        .toast-container {
+            position: fixed;
+            top: calc(var(--header-height) + var(--safe-area-top) + 10px);
+            left: 16px;
+            right: 16px;
+            z-index: 300;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: toastSlideIn 0.3s ease;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            pointer-events: auto;
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .toast.success { border-left: 3px solid var(--accent-success); }
+        .toast.error { border-left: 3px solid var(--accent-danger); }
+        .toast.info { border-left: 3px solid var(--accent-primary); }
+
+        .toast-icon {
+            font-size: 20px;
+        }
+
+        .toast.success .toast-icon { color: var(--accent-success); }
+        .toast.error .toast-icon { color: var(--accent-danger); }
+        .toast.info .toast-icon { color: var(--accent-primary); }
+
+        .toast-message {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        /* ==========================================================================
+           Responsive Utilities
+           ========================================================================== */
+        @media (min-width: 429px) {
+            .app-container {
+                max-width: 428px;
+                margin: 0 auto;
+                border-left: 1px solid var(--border-light);
+                border-right: 1px solid var(--border-light);
+            }
+        }
+
+        /* Landscape mode adjustments */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .bottom-nav {
+                height: calc(50px + var(--safe-area-bottom));
+            }
+
+            .nav-item i {
+                font-size: 18px;
+            }
+
+            .nav-item span {
+                display: none;
+            }
+
+            .fab {
+                bottom: calc(50px + var(--safe-area-bottom) + 16px);
+            }
+        }
+
+        /* Reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-left">
+                <button class="menu-btn" id="menuBtn" aria-label="Open menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="logo">
+                    <i class="fas fa-radar logo-icon"></i>
+                    <span class="logo-text">Nickberg</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="header-btn" id="refreshBtn" aria-label="Refresh data">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+                <button class="header-btn primary" id="runBotBtn" aria-label="Run bot now">
+                    <i class="fas fa-play"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content" id="mainContent">
+            <!-- Pull to Refresh Indicator -->
+            <div class="pull-refresh" id="pullRefresh">
+                <div class="pull-refresh-spinner"></div>
+                <span>Pull to refresh</span>
+            </div>
+
+            <!-- Dashboard Tab -->
+            <div class="tab-view active" id="dashboardTab">
+                <!-- Compact Stats Row -->
+                <div class="stats-row">
+                    <div class="stat-chip">
+                        <div class="stat-chip-icon articles">
+                            <i class="fas fa-newspaper"></i>
+                        </div>
+                        <div>
+                            <div class="stat-chip-value" id="totalArticles">-</div>
+                            <div class="stat-chip-label">Articles</div>
+                        </div>
+                    </div>
+                    <div class="stat-chip">
+                        <div class="stat-chip-icon mentions">
+                            <i class="fas fa-building"></i>
+                        </div>
+                        <div>
+                            <div class="stat-chip-value" id="totalMentions">-</div>
+                            <div class="stat-chip-label">Mentions</div>
+                        </div>
+                    </div>
+                    <div class="stat-chip">
+                        <div class="stat-chip-icon alerts">
+                            <i class="fas fa-bell"></i>
+                        </div>
+                        <div>
+                            <div class="stat-chip-value" id="totalAlerts">-</div>
+                            <div class="stat-chip-label">Alerts</div>
+                        </div>
+                    </div>
+                    <div class="stat-chip">
+                        <div class="stat-chip-icon recent">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div>
+                            <div class="stat-chip-value" id="articles24h">-</div>
+                            <div class="stat-chip-label">24h</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Filters -->
+                <div class="filters-container">
+                    <div class="filters-scroll">
+                        <button class="filter-chip active" data-filter="all">All</button>
+                        <button class="filter-chip" data-filter="breaking">Breaking</button>
+                        <button class="filter-chip" data-filter="earnings">Earnings</button>
+                        <button class="filter-chip" data-filter="m&a">M&A</button>
+                        <button class="filter-chip" data-filter="crypto">Crypto</button>
+                        <button class="filter-chip" data-filter="tech">Tech</button>
+                    </div>
+                </div>
+
+                <!-- Active Alerts Card -->
+                <div class="collapsible">
+                    <div class="collapsible-header" data-collapsible="alerts">
+                        <div class="collapsible-title">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Active Alerts
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span class="card-badge" id="alertCount">0</span>
+                            <i class="fas fa-chevron-down collapsible-icon"></i>
+                        </div>
+                    </div>
+                    <div class="collapsible-content" id="alertsContent">
+                        <div class="alerts-list" id="alertsList">
+                            <div class="empty-state" style="padding: 20px 0;">
+                                <div class="empty-state-icon" style="width: 60px; height: 60px; font-size: 24px;">
+                                    <i class="fas fa-check"></i>
+                                </div>
+                                <div class="empty-state-title" style="font-size: 16px;">No Active Alerts</div>
+                                <div class="empty-state-text">Alerts will appear here when triggered</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Charts -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <i class="fas fa-chart-line"></i>
+                            Activity
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-tabs">
+                            <button class="chart-tab active" data-chart="mentions">Mentions</button>
+                            <button class="chart-tab" data-chart="sentiment">Sentiment</button>
+                            <button class="chart-tab" data-chart="sources">Sources</button>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="mainChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Mentioned Companies -->
+                <div class="collapsible">
+                    <div class="collapsible-header" data-collapsible="companies">
+                        <div class="collapsible-title">
+                            <i class="fas fa-trophy"></i>
+                            Top Mentioned (24h)
+                        </div>
+                        <i class="fas fa-chevron-down collapsible-icon"></i>
+                    </div>
+                    <div class="collapsible-content" id="companiesContent">
+                        <div class="companies-list" id="topCompanies">
+                            <div class="loading-more">
+                                <div class="loading-spinner"></div>
+                                <span>Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sentiment Overview -->
+                <div class="collapsible">
+                    <div class="collapsible-header" data-collapsible="sentiment">
+                        <div class="collapsible-title">
+                            <i class="fas fa-smile"></i>
+                            Sentiment (24h)
+                        </div>
+                        <i class="fas fa-chevron-down collapsible-icon"></i>
+                    </div>
+                    <div class="collapsible-content" id="sentimentContent">
+                        <div class="sentiment-chart-wrapper">
+                            <canvas id="sentimentChart"></canvas>
+                        </div>
+                        <div class="sentiment-stats" id="sentimentStats">
+                            <div class="sentiment-stat">
+                                <div class="sentiment-stat-value positive">-</div>
+                                <div class="sentiment-stat-label">Positive</div>
+                            </div>
+                            <div class="sentiment-stat">
+                                <div class="sentiment-stat-value neutral">-</div>
+                                <div class="sentiment-stat-label">Neutral</div>
+                            </div>
+                            <div class="sentiment-stat">
+                                <div class="sentiment-stat-value negative">-</div>
+                                <div class="sentiment-stat-label">Negative</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markets Tab -->
+            <div class="tab-view" id="marketsTab">
+                <!-- Market Indices -->
+                <div class="market-indices">
+                    <div class="index-card">
+                        <div class="index-name">S&P 500</div>
+                        <div class="index-value" id="sp500Value">--</div>
+                        <div class="index-change" id="sp500Change">--</div>
+                    </div>
+                    <div class="index-card">
+                        <div class="index-name">Nasdaq</div>
+                        <div class="index-value" id="nasdaqValue">--</div>
+                        <div class="index-change" id="nasdaqChange">--</div>
+                    </div>
+                    <div class="index-card">
+                        <div class="index-name">Dow Jones</div>
+                        <div class="index-value" id="dowValue">--</div>
+                        <div class="index-change" id="dowChange">--</div>
+                    </div>
+                    <div class="index-card">
+                        <div class="index-name">Russell 2000</div>
+                        <div class="index-value" id="russellValue">--</div>
+                        <div class="index-change" id="russellChange">--</div>
+                    </div>
+                </div>
+
+                <!-- Watchlist Section -->
+                <div class="watchlist-section">
+                    <div class="watchlist-header">
+                        <h3 class="section-title">Watchlist</h3>
+                        <button class="header-btn" style="width: 36px; height: 36px;" id="addWatchlistBtn">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="watchlistContainer">
+                        <!-- Watchlist items populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- News Tab -->
+            <div class="tab-view" id="newsTab">
+                <!-- News Filters -->
+                <div class="filters-container">
+                    <div class="filters-scroll">
+                        <button class="filter-chip active" data-news-filter="all">All News</button>
+                        <button class="filter-chip" data-news-filter="watchlist">My Watchlist</button>
+                        <button class="filter-chip" data-news-filter="alerts">Alerts Only</button>
+                        <button class="filter-chip" data-news-filter="sources">By Source</button>
+                    </div>
+                </div>
+
+                <!-- News Feed -->
+                <div class="news-feed" id="newsFeed">
+                    <!-- News cards populated dynamically -->
+                </div>
+
+                <!-- Infinite Scroll Loading -->
+                <div class="loading-more" id="newsLoadingMore" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <span>Loading more...</span>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div class="tab-view" id="settingsTab">
+                <!-- Notifications Group -->
+                <div class="settings-group">
+                    <div class="settings-group-title">Notifications</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-bell"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Push Notifications</span>
+                                    <span class="settings-label-hint">Get alerts on your device</span>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="pushNotifications" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Email Alerts</span>
+                                    <span class="settings-label-hint">Daily summary emails</span>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="emailAlerts">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fab fa-telegram"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Telegram</span>
+                                    <span class="settings-label-hint">Bot notifications</span>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="telegramAlerts">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alert Preferences Group -->
+                <div class="settings-group">
+                    <div class="settings-group-title">Alert Preferences</div>
+                    <div class="settings-list">
+                        <div class="settings-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-volume-up"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Volume Spike Threshold</span>
+                                </div>
+                            </div>
+                            <div class="slider-control">
+                                <input type="range" id="volumeThreshold" min="1" max="10" step="0.5" value="3">
+                                <span class="slider-value" id="volumeThresholdValue">3.0x</span>
+                            </div>
+                        </div>
+                        <div class="settings-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Minimum Articles</span>
+                                </div>
+                            </div>
+                            <div class="slider-control">
+                                <input type="range" id="minArticles" min="1" max="20" step="1" value="3">
+                                <span class="slider-value" id="minArticlesValue">3</span>
+                            </div>
+                        </div>
+                        <div class="settings-item" style="flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Sentiment Shift</span>
+                                </div>
+                            </div>
+                            <div class="slider-control">
+                                <input type="range" id="sentimentThreshold" min="0.1" max="1" step="0.1" value="0.3">
+                                <span class="slider-value" id="sentimentThresholdValue">0.3</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Watchlist Management -->
+                <div class="settings-group">
+                    <div class="settings-group-title">Watchlist</div>
+                    <div class="settings-list">
+                        <div class="settings-item" id="manageWatchlistBtn" style="cursor: pointer;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-list"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Manage Watchlist</span>
+                                    <span class="settings-label-hint" id="watchlistCount">0 companies</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right settings-chevron"></i>
+                        </div>
+                        <div class="settings-item" id="importTickersBtn" style="cursor: pointer;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-file-import"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Import Tickers</span>
+                                    <span class="settings-label-hint">From CSV or broker</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right settings-chevron"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- App Settings -->
+                <div class="settings-group">
+                    <div class="settings-group-title">App</div>
+                    <div class="settings-list">
+                        <div class="settings-item">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-moon"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Dark Mode</span>
+                                </div>
+                            </div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="darkMode" checked disabled>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="settings-item" id="dataUsageBtn" style="cursor: pointer;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-wifi"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">Data Usage</span>
+                                    <span class="settings-label-hint">Auto-download settings</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right settings-chevron"></i>
+                        </div>
+                        <div class="settings-item" id="aboutBtn" style="cursor: pointer;">
+                            <div class="settings-item-left">
+                                <div class="settings-icon">
+                                    <i class="fas fa-info-circle"></i>
+                                </div>
+                                <div class="settings-label">
+                                    <span class="settings-label-text">About</span>
+                                    <span class="settings-label-hint">Version 1.0.0</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right settings-chevron"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <button class="header-btn primary" id="saveSettingsBtn" style="width: 100%; height: 50px; margin-top: 8px; font-size: 16px; font-weight: 600;">
+                    <i class="fas fa-save" style="margin-right: 8px;"></i>
+                    Save Settings
+                </button>
+            </div>
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-tab="dashboard">
+                <div class="nav-indicator"></div>
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </button>
+            <button class="nav-item" data-tab="markets">
+                <div class="nav-indicator"></div>
+                <i class="fas fa-chart-bar"></i>
+                <span>Markets</span>
+            </button>
+            <button class="nav-item" data-tab="news">
+                <div class="nav-indicator"></div>
+                <i class="fas fa-newspaper"></i>
+                <span>News</span>
+            </button>
+            <button class="nav-item" data-tab="settings">
+                <div class="nav-indicator"></div>
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- Floating Action Button -->
+        <button class="fab" id="fabBtn" aria-label="Quick actions">
+            <i class="fas fa-bolt"></i>
+        </button>
+    </div>
+
+    <!-- Side Menu Overlay -->
+    <div class="side-menu-overlay" id="sideMenuOverlay"></div>
+
+    <!-- Side Menu -->
+    <aside class="side-menu" id="sideMenu">
+        <div class="side-menu-header">
+            <div class="side-menu-logo">
+                <i class="fas fa-radar"></i>
+                <span>Nickberg Terminal</span>
+            </div>
+            <div class="side-menu-user">
+                <div class="user-name">Financial News Dashboard</div>
+                <div class="user-email">Mobile Edition</div>
+            </div>
+        </div>
+        <nav class="side-menu-nav">
+            <a href="#" class="side-menu-item" data-action="dashboard">
+                <i class="fas fa-home"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="markets">
+                <i class="fas fa-chart-line"></i>
+                <span>Markets</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="news">
+                <i class="fas fa-newspaper"></i>
+                <span>News Feed</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="alerts">
+                <i class="fas fa-bell"></i>
+                <span>Alerts History</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="sources">
+                <i class="fas fa-rss"></i>
+                <span>News Sources</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="settings">
+                <i class="fas fa-cog"></i>
+                <span>Settings</span>
+            </a>
+            <div style="margin: 16px 0; border-top: 1px solid var(--border-light);"></div>
+            <a href="#" class="side-menu-item" data-action="refresh">
+                <i class="fas fa-sync-alt"></i>
+                <span>Refresh Data</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="run">
+                <i class="fas fa-play"></i>
+                <span>Run Bot Now</span>
+            </a>
+            <a href="#" class="side-menu-item" data-action="desktop">
+                <i class="fas fa-desktop"></i>
+                <span>Desktop Version</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- Bottom Sheet Overlay -->
+    <div class="bottom-sheet-overlay" id="bottomSheetOverlay"></div>
+
+    <!-- Quick Actions Bottom Sheet -->
+    <div class="bottom-sheet" id="quickActionsSheet">
+        <div class="bottom-sheet-handle"></div>
+        <div class="bottom-sheet-title">Quick Actions</div>
+        <div class="sheet-option" data-action="refresh">
+            <div class="sheet-option-icon">
+                <i class="fas fa-sync-alt"></i>
+            </div>
+            <div class="sheet-option-text">Refresh Data</div>
+        </div>
+        <div class="sheet-option" data-action="run">
+            <div class="sheet-option-icon">
+                <i class="fas fa-play"></i>
+            </div>
+            <div class="sheet-option-text">Run Bot Now</div>
+        </div>
+        <div class="sheet-option" data-action="filter">
+            <div class="sheet-option-icon">
+                <i class="fas fa-filter"></i>
+            </div>
+            <div class="sheet-option-text">Filter News</div>
+        </div>
+        <div class="sheet-option" data-action="alert">
+            <div class="sheet-option-icon">
+                <i class="fas fa-plus"></i>
+            </div>
+            <div class="sheet-option-text">Create Alert</div>
+        </div>
+        <div class="sheet-option" data-action="share">
+            <div class="sheet-option-icon">
+                <i class="fas fa-share-alt"></i>
+            </div>
+            <div class="sheet-option-text">Share</div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- JavaScript -->
+    <script>
+        /**
+         * Nickberg Terminal - Mobile Dashboard JavaScript
+         */
+
+        // Global state
+        let currentTab = 'dashboard';
+        let mainChart = null;
+        let sentimentChart = null;
+        let isRefreshing = false;
+        let newsPage = 1;
+        let isLoadingMore = false;
+
+        // Settings state
+        let settingsState = {
+            watchlist: {},
+            alert_channels: {},
+            severity_routing: {},
+            thresholds: {},
+            company_preferences: {},
+            isDirty: false
+        };
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            initMobileApp();
+            loadDashboardData();
+            initCharts();
+            setupEventListeners();
+            setupPullToRefresh();
+            setupInfiniteScroll();
+        });
+
+        // Initialize mobile app
+        function initMobileApp() {
+            // Check for touch device
+            if (window.matchMedia('(pointer: coarse)').matches) {
+                document.body.classList.add('touch-device');
+            }
+
+            // Initialize collapsible sections
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                const target = header.dataset.collapsible;
+                const content = document.getElementById(target + 'Content');
+                
+                // Expand alerts by default if there are alerts
+                if (target === 'alerts') {
+                    header.classList.add('expanded');
+                    content.classList.add('expanded');
+                }
+            });
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Bottom navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const tab = item.dataset.tab;
+                    switchTab(tab);
+                });
+            });
+
+            // Collapsible sections
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const target = header.dataset.collapsible;
+                    const content = document.getElementById(target + 'Content');
+                    header.classList.toggle('expanded');
+                    content.classList.toggle('expanded');
+                });
+            });
+
+            // Filter chips
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const parent = chip.parentElement;
+                    parent.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    
+                    // Apply filter
+                    const filter = chip.dataset.filter || chip.dataset.newsFilter;
+                    if (filter) {
+                        applyFilter(filter);
+                    }
+                });
+            });
+
+            // Chart tabs
+            document.querySelectorAll('.chart-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    updateChart(tab.dataset.chart);
+                });
+            });
+
+            // Menu button
+            document.getElementById('menuBtn').addEventListener('click', toggleSideMenu);
+            document.getElementById('sideMenuOverlay').addEventListener('click', toggleSideMenu);
+
+            // Side menu items
+            document.querySelectorAll('.side-menu-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const action = item.dataset.action;
+                    handleMenuAction(action);
+                    toggleSideMenu();
+                });
+            });
+
+            // FAB button
+            document.getElementById('fabBtn').addEventListener('click', toggleBottomSheet);
+            document.getElementById('bottomSheetOverlay').addEventListener('click', toggleBottomSheet);
+
+            // Bottom sheet options
+            document.querySelectorAll('.sheet-option').forEach(option => {
+                option.addEventListener('click', () => {
+                    const action = option.dataset.action;
+                    handleQuickAction(action);
+                    toggleBottomSheet();
+                });
+            });
+
+            // Header buttons
+            document.getElementById('refreshBtn').addEventListener('click', refreshData);
+            document.getElementById('runBotBtn').addEventListener('click', runBot);
+
+            // Settings sliders
+            setupSliderListeners();
+
+            // Save settings
+            document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+
+            // Watchlist management
+            document.getElementById('manageWatchlistBtn').addEventListener('click', () => {
+                showToast('Watchlist management coming soon', 'info');
+            });
+
+            document.getElementById('importTickersBtn').addEventListener('click', () => {
+                showToast('Import feature coming soon', 'info');
+            });
+
+            // Data usage & about
+            document.getElementById('dataUsageBtn').addEventListener('click', () => {
+                showToast('Data usage settings coming soon', 'info');
+            });
+
+            document.getElementById('aboutBtn').addEventListener('click', () => {
+                showToast('Nickberg Terminal Mobile v1.0.0', 'info');
+            });
+        }
+
+        // Setup slider listeners
+        function setupSliderListeners() {
+            const sliders = [
+                { id: 'volumeThreshold', displayId: 'volumeThresholdValue', suffix: 'x' },
+                { id: 'minArticles', displayId: 'minArticlesValue', suffix: '' },
+                { id: 'sentimentThreshold', displayId: 'sentimentThresholdValue', suffix: '' }
+            ];
+
+            sliders.forEach(({ id, displayId, suffix }) => {
+                const slider = document.getElementById(id);
+                const display = document.getElementById(displayId);
+                
+                if (slider && display) {
+                    slider.addEventListener('input', () => {
+                        display.textContent = slider.value + suffix;
+                        settingsState.isDirty = true;
+                    });
+                }
+            });
+        }
+
+        // Setup pull to refresh
+        function setupPullToRefresh() {
+            const mainContent = document.getElementById('mainContent');
+            const pullRefresh = document.getElementById('pullRefresh');
+            let startY = 0;
+            let currentY = 0;
+            let isPulling = false;
+
+            mainContent.addEventListener('touchstart', (e) => {
+                if (mainContent.scrollTop === 0) {
+                    startY = e.touches[0].clientY;
+                    isPulling = true;
+                }
+            }, { passive: true });
+
+            mainContent.addEventListener('touchmove', (e) => {
+                if (!isPulling) return;
+                
+                currentY = e.touches[0].clientY;
+                const diff = currentY - startY;
+                
+                if (diff > 0 && diff < 100) {
+                    pullRefresh.style.transform = `translateY(${diff}px)`;
+                    pullRefresh.style.opacity = Math.min(diff / 60, 1);
+                }
+            }, { passive: true });
+
+            mainContent.addEventListener('touchend', () => {
+                if (!isPulling) return;
+                
+                const diff = currentY - startY;
+                isPulling = false;
+                
+                if (diff > 80) {
+                    pullRefresh.style.transform = 'translateY(60px)';
+                    refreshData();
+                } else {
+                    pullRefresh.style.transform = 'translateY(0)';
+                    pullRefresh.style.opacity = 0;
+                }
+                
+                setTimeout(() => {
+                    pullRefresh.style.transform = '';
+                    pullRefresh.style.opacity = '';
+                }, 300);
+            });
+        }
+
+        // Setup infinite scroll
+        function setupInfiniteScroll() {
+            const mainContent = document.getElementById('mainContent');
+            
+            mainContent.addEventListener('scroll', () => {
+                if (currentTab !== 'news') return;
+                
+                const scrollBottom = mainContent.scrollTop + mainContent.clientHeight;
+                const threshold = mainContent.scrollHeight - 200;
+                
+                if (scrollBottom >= threshold && !isLoadingMore) {
+                    loadMoreNews();
+                }
+            });
+        }
+
+        // Switch tab
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.toggle('active', item.dataset.tab === tab);
+            });
+            
+            // Update tab views
+            document.querySelectorAll('.tab-view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.getElementById(tab + 'Tab').classList.add('active');
+            
+            // Scroll to top
+            document.getElementById('mainContent').scrollTop = 0;
+            
+            // Show/hide FAB based on tab
+            const fab = document.getElementById('fabBtn');
+            if (tab === 'settings') {
+                fab.style.display = 'none';
+            } else {
+                fab.style.display = 'flex';
+            }
+            
+            // Load tab-specific data
+            if (tab === 'markets') {
+                loadMarketsData();
+            } else if (tab === 'news') {
+                loadNewsFeed();
+            }
+        }
+
+        // Toggle side menu
+        function toggleSideMenu() {
+            const overlay = document.getElementById('sideMenuOverlay');
+            const menu = document.getElementById('sideMenu');
+            
+            overlay.classList.toggle('active');
+            menu.classList.toggle('active');
+        }
+
+        // Toggle bottom sheet
+        function toggleBottomSheet() {
+            const overlay = document.getElementById('bottomSheetOverlay');
+            const sheet = document.getElementById('quickActionsSheet');
+            
+            overlay.classList.toggle('active');
+            sheet.classList.toggle('active');
+        }
+
+        // Handle menu action
+        function handleMenuAction(action) {
+            switch (action) {
+                case 'dashboard':
+                case 'markets':
+                case 'news':
+                case 'settings':
+                    switchTab(action);
+                    break;
+                case 'alerts':
+                    switchTab('dashboard');
+                    document.getElementById('alertsContent').classList.add('expanded');
+                    document.querySelector('[data-collapsible="alerts"]').classList.add('expanded');
+                    break;
+                case 'sources':
+                    showToast('News sources management coming soon', 'info');
+                    break;
+                case 'refresh':
+                    refreshData();
+                    break;
+                case 'run':
+                    runBot();
+                    break;
+                case 'desktop':
+                    window.location.href = '/dashboard';
+                    break;
+            }
+        }
+
+        // Handle quick action
+        function handleQuickAction(action) {
+            switch (action) {
+                case 'refresh':
+                    refreshData();
+                    break;
+                case 'run':
+                    runBot();
+                    break;
+                case 'filter':
+                    showToast('Filter options coming soon', 'info');
+                    break;
+                case 'alert':
+                    showToast('Custom alerts coming soon', 'info');
+                    break;
+                case 'share':
+                    shareApp();
+                    break;
+            }
+        }
+
+        // Apply filter
+        function applyFilter(filter) {
+            showToast(`Filter applied: ${filter}`, 'info');
+            // Implementation would filter the displayed content
+        }
+
+        // Share app
+        async function shareApp() {
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: 'Nickberg Terminal',
+                        text: 'Check out Nickberg Terminal for financial news alerts',
+                        url: window.location.href
+                    });
+                } catch (err) {
+                    console.log('Share canceled');
+                }
+            } else {
+                showToast('Share not supported on this device', 'info');
+            }
+        }
+
+        // Refresh data
+        async function refreshData() {
+            if (isRefreshing) return;
+            
+            isRefreshing = true;
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            
+            showToast('Refreshing data...', 'info');
+            
+            try {
+                await loadDashboardData();
+                showToast('Data refreshed successfully', 'success');
+            } catch (error) {
+                showToast('Failed to refresh data', 'error');
+            } finally {
+                isRefreshing = false;
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        }
+
+        // Run bot
+        async function runBot() {
+            const runBtn = document.getElementById('runBotBtn');
+            runBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            runBtn.disabled = true;
+            
+            showToast('Running bot...', 'info');
+            
+            try {
+                const response = await fetch('/api/run', { method: 'POST' });
+                if (response.ok) {
+                    showToast('Bot completed successfully', 'success');
+                    await loadDashboardData();
+                } else {
+                    throw new Error('Bot execution failed');
+                }
+            } catch (error) {
+                showToast('Bot execution failed', 'error');
+            } finally {
+                runBtn.innerHTML = '<i class="fas fa-play"></i>';
+                runBtn.disabled = false;
+            }
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                const [statsRes, alertsRes, companiesRes, sentimentRes] = await Promise.all([
+                    fetch('/api/stats').catch(() => null),
+                    fetch('/api/alerts').catch(() => null),
+                    fetch('/api/top-companies').catch(() => null),
+                    fetch('/api/sentiment').catch(() => null)
+                ]);
+
+                if (statsRes?.ok) {
+                    const stats = await statsRes.json();
+                    updateStats(stats);
+                }
+
+                if (alertsRes?.ok) {
+                    const alerts = await alertsRes.json();
+                    updateAlerts(alerts);
+                }
+
+                if (companiesRes?.ok) {
+                    const companies = await companiesRes.json();
+                    updateTopCompanies(companies);
+                }
+
+                if (sentimentRes?.ok) {
+                    const sentiment = await sentimentRes.json();
+                    updateSentiment(sentiment);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                // Use sample data for demo
+                loadSampleData();
+            }
+        }
+
+        // Load sample data for demo
+        function loadSampleData() {
+            // Sample stats
+            updateStats({
+                total_articles: 1247,
+                total_mentions: 342,
+                total_alerts: 5,
+                articles_24h: 89
+            });
+
+            // Sample alerts
+            updateAlerts([
+                {
+                    id: 1,
+                    type: 'Volume Spike',
+                    severity: 'high',
+                    message: 'AAPL showing unusual news volume: 5.2x average',
+                    tickers: ['AAPL'],
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    id: 2,
+                    type: 'Sentiment Shift',
+                    severity: 'medium',
+                    message: 'TSLA sentiment dropped from +0.4 to -0.2',
+                    tickers: ['TSLA'],
+                    timestamp: new Date(Date.now() - 3600000).toISOString()
+                },
+                {
+                    id: 3,
+                    type: 'Pattern Alert',
+                    severity: 'low',
+                    message: 'NVDA mentioned in 8 articles in last hour',
+                    tickers: ['NVDA'],
+                    timestamp: new Date(Date.now() - 7200000).toISOString()
+                }
+            ]);
+
+            // Sample companies
+            updateTopCompanies([
+                { ticker: 'AAPL', name: 'Apple Inc.', count: 45 },
+                { ticker: 'TSLA', name: 'Tesla Inc.', count: 38 },
+                { ticker: 'NVDA', name: 'NVIDIA Corp.', count: 32 },
+                { ticker: 'MSFT', name: 'Microsoft Corp.', count: 28 },
+                { ticker: 'AMZN', name: 'Amazon.com Inc.', count: 24 }
+            ]);
+
+            // Sample sentiment
+            updateSentiment({
+                positive: 45,
+                neutral: 35,
+                negative: 20
+            });
+        }
+
+        // Update stats
+        function updateStats(stats) {
+            document.getElementById('totalArticles').textContent = stats.total_articles?.toLocaleString() || '-';
+            document.getElementById('totalMentions').textContent = stats.total_mentions?.toLocaleString() || '-';
+            document.getElementById('totalAlerts').textContent = stats.total_alerts || '-';
+            document.getElementById('articles24h').textContent = stats.articles_24h || '-';
+        }
+
+        // Update alerts
+        function updateAlerts(alerts) {
+            const container = document.getElementById('alertsList');
+            const countBadge = document.getElementById('alertCount');
+            
+            countBadge.textContent = alerts.length;
+            
+            if (alerts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state" style="padding: 20px 0;">
+                        <div class="empty-state-icon" style="width: 60px; height: 60px; font-size: 24px;">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <div class="empty-state-title" style="font-size: 16px;">No Active Alerts</div>
+                        <div class="empty-state-text">Alerts will appear here when triggered</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-card ${alert.severity}">
+                    <div class="alert-header">
+                        <span class="alert-type">${alert.type}</span>
+                        <span class="alert-severity ${alert.severity}">${alert.severity}</span>
+                    </div>
+                    <div class="alert-message">${alert.message}</div>
+                    <div class="alert-meta">
+                        <div class="alert-tickers">
+                            ${(alert.tickers || []).map(t => `<span class="ticker-tag">$${t}</span>`).join('')}
+                        </div>
+                        <span>${formatTime(alert.timestamp)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Update top companies
+        function updateTopCompanies(companies) {
+            const container = document.getElementById('topCompanies');
+            
+            container.innerHTML = companies.map((company, index) => `
+                <div class="company-row">
+                    <div class="company-info">
+                        <div class="company-rank ${index < 3 ? 'top' : ''}">${index + 1}</div>
+                        <div class="company-details">
+                            <div class="company-name">${company.name}</div>
+                            <div class="company-ticker">${company.ticker}</div>
+                        </div>
+                    </div>
+                    <div class="company-count">${company.count}</div>
+                </div>
+            `).join('');
+        }
+
+        // Update sentiment
+        function updateSentiment(sentiment) {
+            const statsContainer = document.getElementById('sentimentStats');
+            const total = sentiment.positive + sentiment.neutral + sentiment.negative;
+            
+            statsContainer.innerHTML = `
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-value positive">${Math.round(sentiment.positive / total * 100)}%</div>
+                    <div class="sentiment-stat-label">Positive</div>
+                </div>
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-value neutral">${Math.round(sentiment.neutral / total * 100)}%</div>
+                    <div class="sentiment-stat-label">Neutral</div>
+                </div>
+                <div class="sentiment-stat">
+                    <div class="sentiment-stat-value negative">${Math.round(sentiment.negative / total * 100)}%</div>
+                    <div class="sentiment-stat-label">Negative</div>
+                </div>
+            `;
+            
+            // Update chart
+            updateSentimentChart(sentiment);
+        }
+
+        // Initialize charts
+        function initCharts() {
+            const ctx = document.getElementById('mainChart');
+            if (!ctx) return;
+            
+            mainChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Mentions',
+                        data: [45, 52, 38, 65, 48, 42, 55],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false, color: '#334155' },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        },
+                        y: {
+                            grid: { color: '#334155' },
+                            ticks: { color: '#94a3b8', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+
+            // Sentiment chart
+            const sentimentCtx = document.getElementById('sentimentChart');
+            if (sentimentCtx) {
+                sentimentChart = new Chart(sentimentCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Positive', 'Neutral', 'Negative'],
+                        datasets: [{
+                            data: [45, 35, 20],
+                            backgroundColor: ['#22c55e', '#64748b', '#ef4444'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Update chart
+        function updateChart(type) {
+            if (!mainChart) return;
+            
+            const datasets = {
+                mentions: {
+                    label: 'Mentions',
+                    data: [45, 52, 38, 65, 48, 42, 55],
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)'
+                },
+                sentiment: {
+                    label: 'Sentiment',
+                    data: [0.2, 0.3, 0.1, 0.4, 0.2, 0.3, 0.35],
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)'
+                },
+                sources: {
+                    label: 'Sources',
+                    data: [12, 15, 8, 20, 14, 10, 18],
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.1)'
+                }
+            };
+            
+            const dataset = datasets[type];
+            mainChart.data.datasets[0] = dataset;
+            mainChart.update();
+        }
+
+        // Update sentiment chart
+        function updateSentimentChart(sentiment) {
+            if (!sentimentChart) return;
+            
+            sentimentChart.data.datasets[0].data = [
+                sentiment.positive,
+                sentiment.neutral,
+                sentiment.negative
+            ];
+            sentimentChart.update();
+        }
+
+        // Load markets data
+        async function loadMarketsData() {
+            // Sample data - replace with actual API call
+            const indices = [
+                { id: 'sp500', value: '4,783.45', change: '+1.23%', positive: true },
+                { id: 'nasdaq', value: '15,123.67', change: '+0.89%', positive: true },
+                { id: 'dow', value: '37,545.23', change: '-0.34%', positive: false },
+                { id: 'russell', value: '2,045.78', change: '+0.56%', positive: true }
+            ];
+            
+            indices.forEach(index => {
+                const valueEl = document.getElementById(index.id + 'Value');
+                const changeEl = document.getElementById(index.id + 'Change');
+                
+                if (valueEl) valueEl.textContent = index.value;
+                if (changeEl) {
+                    changeEl.textContent = index.change;
+                    changeEl.className = 'index-change ' + (index.positive ? 'positive' : 'negative');
+                }
+            });
+
+            // Load watchlist
+            loadWatchlist();
+        }
+
+        // Load watchlist
+        function loadWatchlist() {
+            const container = document.getElementById('watchlistContainer');
+            const watchlist = [
+                { ticker: 'AAPL', name: 'Apple Inc.', price: '$185.92', change: '+1.23%', positive: true },
+                { ticker: 'TSLA', name: 'Tesla Inc.', price: '$218.45', change: '-0.87%', positive: false },
+                { ticker: 'NVDA', name: 'NVIDIA Corp.', price: '$495.22', change: '+2.45%', positive: true },
+                { ticker: 'MSFT', name: 'Microsoft Corp.', price: '$378.91', change: '+0.56%', positive: true }
+            ];
+            
+            container.innerHTML = watchlist.map(item => `
+                <div class="watchlist-item">
+                    <div class="watchlist-info">
+                        <div class="watchlist-logo">${item.ticker[0]}</div>
+                        <div class="watchlist-details">
+                            <h4>${item.ticker}</h4>
+                            <span>${item.name}</span>
+                        </div>
+                    </div>
+                    <div class="watchlist-price">
+                        <div class="price">${item.price}</div>
+                        <div class="change ${item.positive ? 'positive' : 'negative'}">${item.change}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Load news feed
+        async function loadNewsFeed() {
+            const container = document.getElementById('newsFeed');
+            
+            // Show loading skeleton
+            container.innerHTML = Array(3).fill(0).map(() => `
+                <div class="news-card">
+                    <div class="skeleton skeleton-card"></div>
+                </div>
+            `).join('');
+            
+            try {
+                const response = await fetch('/api/articles?limit=20').catch(() => null);
+                let articles = [];
+                
+                if (response?.ok) {
+                    articles = await response.json();
+                } else {
+                    // Sample articles
+                    articles = getSampleArticles();
+                }
+                
+                renderNewsFeed(articles);
+            } catch (error) {
+                renderNewsFeed(getSampleArticles());
+            }
+        }
+
+        // Get sample articles
+        function getSampleArticles() {
+            return [
+                {
+                    id: 1,
+                    title: 'Apple announces record-breaking Q1 earnings, beating analyst expectations',
+                    source: 'Reuters',
+                    excerpt: 'Apple Inc. reported quarterly revenue of $123.9 billion, up 11% year over year, with strong iPhone and Services performance driving the beat.',
+                    tickers: ['AAPL'],
+                    sentiment: 'positive',
+                    timestamp: new Date(Date.now() - 1800000).toISOString()
+                },
+                {
+                    id: 2,
+                    title: 'Tesla expands Full Self-Driving beta to additional 100,000 vehicles',
+                    source: 'TechCrunch',
+                    excerpt: 'Tesla is rolling out its latest FSD beta software to more customers as it prepares for wider release later this year.',
+                    tickers: ['TSLA'],
+                    sentiment: 'positive',
+                    timestamp: new Date(Date.now() - 3600000).toISOString()
+                },
+                {
+                    id: 3,
+                    title: 'Fed Chair Powell hints at potential rate pause in upcoming meeting',
+                    source: 'Bloomberg',
+                    excerpt: 'Federal Reserve Chair Jerome Powell suggested the central bank may slow the pace of interest rate increases as inflation shows signs of cooling.',
+                    tickers: ['SPY', 'QQQ'],
+                    sentiment: 'neutral',
+                    timestamp: new Date(Date.now() - 5400000).toISOString()
+                },
+                {
+                    id: 4,
+                    title: 'NVIDIA partners with major cloud providers for AI infrastructure expansion',
+                    source: 'CNBC',
+                    excerpt: 'NVIDIA announced new partnerships with Amazon Web Services, Microsoft Azure, and Google Cloud to expand AI computing capabilities.',
+                    tickers: ['NVDA', 'AMZN', 'MSFT', 'GOOGL'],
+                    sentiment: 'positive',
+                    timestamp: new Date(Date.now() - 7200000).toISOString()
+                },
+                {
+                    id: 5,
+                    title: 'Oil prices surge as OPEC+ considers production cuts',
+                    source: 'Financial Times',
+                    excerpt: 'Crude oil prices rose sharply as OPEC+ members discuss potential supply reductions to support market stability.',
+                    tickers: ['XOM', 'CVX', 'USO'],
+                    sentiment: 'negative',
+                    timestamp: new Date(Date.now() - 9000000).toISOString()
+                }
+            ];
+        }
+
+        // Render news feed
+        function renderNewsFeed(articles) {
+            const container = document.getElementById('newsFeed');
+            
+            container.innerHTML = articles.map(article => `
+                <article class="news-card">
+                    <div class="news-header">
+                        <div class="news-source-row">
+                            <div class="news-source">
+                                <span class="source-badge">${article.source}</span>
+                            </div>
+                            <span class="news-time">${formatTime(article.timestamp)}</span>
+                        </div>
+                        <h3 class="news-title">${article.title}</h3>
+                    </div>
+                    <div class="news-body">
+                        <p class="news-excerpt">${article.excerpt}</p>
+                        <div class="news-footer">
+                            <div class="news-mentions">
+                                ${(article.tickers || []).slice(0, 3).map(t => `<span class="mention-badge">$${t}</span>`).join('')}
+                                ${(article.tickers?.length > 3) ? `<span class="mention-badge">+${article.tickers.length - 3}</span>` : ''}
+                            </div>
+                            <div class="sentiment-indicator ${article.sentiment}">
+                                <i class="fas fa-${article.sentiment === 'positive' ? 'arrow-up' : article.sentiment === 'negative' ? 'arrow-down' : 'minus'}"></i>
+                                <span>${article.sentiment}</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
+        // Load more news (infinite scroll)
+        async function loadMoreNews() {
+            if (isLoadingMore) return;
+            
+            isLoadingMore = true;
+            document.getElementById('newsLoadingMore').style.display = 'flex';
+            
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Add more sample articles
+            const container = document.getElementById('newsFeed');
+            const moreArticles = getSampleArticles().map(a => ({...a, id: a.id + newsPage * 10}));
+            
+            const html = moreArticles.map(article => `
+                <article class="news-card">
+                    <div class="news-header">
+                        <div class="news-source-row">
+                            <div class="news-source">
+                                <span class="source-badge">${article.source}</span>
+                            </div>
+                            <span class="news-time">${formatTime(article.timestamp)}</span>
+                        </div>
+                        <h3 class="news-title">${article.title}</h3>
+                    </div>
+                    <div class="news-body">
+                        <p class="news-excerpt">${article.excerpt}</p>
+                        <div class="news-footer">
+                            <div class="news-mentions">
+                                ${(article.tickers || []).slice(0, 3).map(t => `<span class="mention-badge">$${t}</span>`).join('')}
+                            </div>
+                            <div class="sentiment-indicator ${article.sentiment}">
+                                <i class="fas fa-${article.sentiment === 'positive' ? 'arrow-up' : article.sentiment === 'negative' ? 'arrow-down' : 'minus'}"></i>
+                                <span>${article.sentiment}</span>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            `).join('');
+            
+            container.insertAdjacentHTML('beforeend', html);
+            
+            newsPage++;
+            isLoadingMore = false;
+            document.getElementById('newsLoadingMore').style.display = 'none';
+        }
+
+        // Save settings
+        async function saveSettings() {
+            const btn = document.getElementById('saveSettingsBtn');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right: 8px;"></i>Saving...';
+            
+            showToast('Saving settings...', 'info');
+            
+            // Simulate API call
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            settingsState.isDirty = false;
+            btn.innerHTML = '<i class="fas fa-save" style="margin-right: 8px;"></i>Save Settings';
+            showToast('Settings saved successfully', 'success');
+        }
+
+        // Format time
+        function formatTime(timestamp) {
+            if (!timestamp) return '';
+            
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = now - date;
+            
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) return 'Just now';
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            
+            return date.toLocaleDateString();
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: 'check-circle',
+                error: 'exclamation-circle',
+                info: 'info-circle'
+            };
+            
+            toast.innerHTML = `
+                <i class="fas fa-${icons[type]} toast-icon"></i>
+                <span class="toast-message">${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-20px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Auto-refresh every 60 seconds
+        setInterval(() => {
+            if (!isRefreshing && document.visibilityState === 'visible') {
+                loadDashboardData();
+            }
+        }, 60000);
+    </script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/js/service-worker.js')
+                    .then(registration => {
+                        console.log('SW registered:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('SW registration failed:', error);
+                    });
+            });
+        }
+    </script>
+    
+    <!-- Mobile Dashboard JS -->
+    <script src="/static/js/mobile-dashboard.js"></script>
+</body>
+</html>

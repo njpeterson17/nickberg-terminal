@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, render_template, jsonify, request, send_from_directory, Response, g
+from flask import Flask, render_template, jsonify, request, send_from_directory, Response, g, redirect, make_response
 
 # Prometheus metrics
 try:
@@ -289,6 +289,16 @@ def get_last_scrape_time():
     return None
 
 
+def is_mobile_device():
+    """Detect if request is from mobile device"""
+    user_agent = request.headers.get('User-Agent', '').lower()
+    mobile_patterns = [
+        'android', 'iphone', 'ipad', 'ipod', 'blackberry',
+        'windows phone', 'webos', 'opera mini', 'mobile'
+    ]
+    return any(pattern in user_agent for pattern in mobile_patterns)
+
+
 # Helper functions
 def get_db_stats():
     """Get database statistics"""
@@ -427,7 +437,18 @@ def favicon():
 
 @app.route('/')
 def index():
-    """Main dashboard - Bloomberg Terminal Theme"""
+    """Main dashboard - Bloomberg Terminal Theme
+    
+    Auto-redirects mobile users to mobile dashboard unless ?desktop=1 is set.
+    """
+    # Check for desktop override
+    if request.args.get('desktop') == '1':
+        return render_template('bloomberg-dashboard.html')
+    
+    # Redirect mobile users to mobile dashboard
+    if is_mobile_device():
+        return redirect('/mobile')
+    
     return render_template('bloomberg-dashboard.html')
 
 
@@ -435,6 +456,15 @@ def index():
 def classic_dashboard():
     """Original dashboard theme"""
     return render_template('index.html')
+
+
+@app.route('/mobile')
+def mobile_dashboard():
+    """Mobile-optimized dashboard"""
+    response = make_response(render_template('mobile.html'))
+    # Add caching headers for mobile assets
+    response.headers['Cache-Control'] = 'public, max-age=300'
+    return response
 
 
 @app.route('/health')
