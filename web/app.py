@@ -7,6 +7,7 @@ import os
 import sys
 import json
 import uuid
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
@@ -385,6 +386,159 @@ def get_recent_articles(limit=50):
     } for a in articles]
 
 
+def search_articles(
+    limit=200,
+    offset=0,
+    sources=None,
+    tickers=None,
+    search=None,
+    from_date=None,
+    to_date=None,
+    sentiment=None
+):
+    """
+    Search articles with filtering and pagination support.
+    
+    Args:
+        limit: Maximum number of articles to return (max 500)
+        offset: Number of articles to skip for pagination
+        sources: List of source names to filter by
+        tickers: List of ticker symbols to filter by (searches mentions)
+        search: Text search query for title/content
+        from_date: ISO date string for start date filter
+        to_date: ISO date string for end date filter
+        sentiment: Filter by sentiment ('positive', 'negative', 'neutral')
+    
+    Returns:
+        Dict with 'articles' list and 'total' count
+    """
+    # Build dynamic SQL query
+    conditions = []
+    params = []
+    
+    # Base query
+    base_query = "FROM articles"
+    
+    # Add ticker filter via mentions join if needed
+    if tickers:
+        base_query = """FROM articles a 
+            INNER JOIN company_mentions cm ON a.id = cm.article_id 
+            WHERE cm.company_ticker IN ({})
+        """.format(','.join('?' * len(tickers)))
+        params.extend(tickers)
+    else:
+        base_query = "FROM articles WHERE 1=1"
+    
+    # Source filter
+    if sources:
+        if tickers:
+            conditions.append("a.source IN ({})".format(','.join('?' * len(sources))))
+        else:
+            conditions.append("source IN ({})".format(','.join('?' * len(sources))))
+        params.extend(sources)
+    
+    # Date range filters
+    if from_date:
+        try:
+            datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+            if tickers:
+                conditions.append("a.scraped_at >= ?")
+            else:
+                conditions.append("scraped_at >= ?")
+            params.append(from_date)
+        except ValueError:
+            pass
+    
+    if to_date:
+        try:
+            datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+            if tickers:
+                conditions.append("a.scraped_at <= ?")
+            else:
+                conditions.append("scraped_at <= ?")
+            params.append(to_date)
+        except ValueError:
+            pass
+    
+    # Text search in title
+    if search:
+        search_term = f"%{search}%"
+        if tickers:
+            conditions.append("(a.title LIKE ? OR a.content LIKE ?)")
+        else:
+            conditions.append("(title LIKE ? OR content LIKE ?)")
+        params.extend([search_term, search_term])
+    
+    # Sentiment filter
+    if sentiment:
+        if tickers:
+            if sentiment == 'positive':
+                conditions.append("a.sentiment_score > 0.2")
+            elif sentiment == 'negative':
+                conditions.append("a.sentiment_score < -0.2")
+            elif sentiment == 'neutral':
+                conditions.append("(a.sentiment_score >= -0.2 AND a.sentiment_score <= 0.2)")
+        else:
+            if sentiment == 'positive':
+                conditions.append("sentiment_score > 0.2")
+            elif sentiment == 'negative':
+                conditions.append("sentiment_score < -0.2")
+            elif sentiment == 'neutral':
+                conditions.append("(sentiment_score >= -0.2 AND sentiment_score <= 0.2)")
+    
+    # Combine conditions
+    where_clause = ""
+    if conditions:
+        if tickers:
+            where_clause = " AND " + " AND ".join(conditions)
+        else:
+            where_clause = " AND " + " AND ".join(conditions)
+    
+    # Build final queries
+    if tickers:
+        count_query = f"SELECT COUNT(DISTINCT a.id) as count {base_query}{where_clause}"
+        data_query = f"""
+            SELECT DISTINCT a.* {base_query}{where_clause}
+            ORDER BY a.scraped_at DESC
+            LIMIT ? OFFSET ?
+        """
+    else:
+        count_query = f"SELECT COUNT(*) as count {base_query}{where_clause}"
+        data_query = f"""
+            SELECT * {base_query}{where_clause}
+            ORDER BY scraped_at DESC
+            LIMIT ? OFFSET ?
+        """
+    
+    # Execute queries
+    with db.get_connection() as conn:
+        # Get total count
+        total = conn.execute(count_query, params).fetchone()['count']
+        
+        # Get articles with pagination
+        query_params = params + [limit, offset]
+        rows = conn.execute(data_query, query_params).fetchall()
+        
+        articles = [{
+            'id': row['id'],
+            'title': row['title'],
+            'source': row['source'],
+            'url': row['url'],
+            'published_at': format_datetime(row['published_at']),
+            'scraped_at': format_datetime(row['scraped_at']),
+            'sentiment': row['sentiment_score'],
+            'mentions': json.loads(row['mentions']) if row['mentions'] else []
+        } for row in rows]
+        
+        return {
+            'articles': articles,
+            'total': total,
+            'limit': limit,
+            'offset': offset,
+            'has_more': (offset + len(articles)) < total
+        }
+
+
 def get_sentiment_distribution():
     """Get sentiment distribution of recent articles"""
     with db.get_connection() as conn:
@@ -614,9 +768,57 @@ def api_all_companies():
 @app.route('/api/articles')
 @require_api_key
 def api_articles():
-    """Get recent articles"""
-    limit = request.args.get('limit', 50, type=int)
-    return jsonify(get_recent_articles(limit))
+    """
+    Get recent articles with optional filtering and pagination.
+    
+    Query Parameters:
+        - limit: Maximum number of articles (default 200, max 500)
+        - offset: Number of articles to skip (for pagination)
+        - sources: Comma-separated list of source names to filter
+        - tickers: Comma-separated list of ticker symbols to filter
+        - search: Text search query for title/content
+        - from_date: ISO date string for start date (e.g., 2024-01-01)
+        - to_date: ISO date string for end date
+        - sentiment: Filter by sentiment ('positive', 'negative', 'neutral')
+    
+    Returns:
+        JSON with 'articles' list and pagination metadata
+    """
+    # Parse parameters
+    limit = min(request.args.get('limit', 200, type=int), 500)
+    offset = max(request.args.get('offset', 0, type=int), 0)
+    
+    # Parse comma-separated lists
+    sources = None
+    if request.args.get('sources'):
+        sources = [s.strip() for s in request.args.get('sources').split(',') if s.strip()]
+    
+    tickers = None
+    if request.args.get('tickers'):
+        tickers = [t.strip().upper() for t in request.args.get('tickers').split(',') if t.strip()]
+    
+    search = request.args.get('search', '').strip() or None
+    from_date = request.args.get('from_date') or None
+    to_date = request.args.get('to_date') or None
+    sentiment = request.args.get('sentiment', '').lower() or None
+    
+    # If no filters provided and no offset, use simple get_recent_articles for backward compatibility
+    if not any([sources, tickers, search, from_date, to_date, sentiment, offset > 0]):
+        return jsonify(get_recent_articles(limit))
+    
+    # Use search function for filtered/paginated results
+    result = search_articles(
+        limit=limit,
+        offset=offset,
+        sources=sources,
+        tickers=tickers,
+        search=search,
+        from_date=from_date,
+        to_date=to_date,
+        sentiment=sentiment
+    )
+    
+    return jsonify(result)
 
 
 @app.route('/api/sentiment')
@@ -1293,6 +1495,379 @@ def api_market_history(ticker):
         return jsonify({'error': 'Failed to get market history'}), 500
 
 
+# =============================================================================
+# Stock Detail Modal API Endpoints
+# =============================================================================
+
+# Simple in-memory cache for stock data
+_stock_cache = {}
+STOCK_CACHE_TTL = 300  # 5 minutes
+
+def _get_cached_stock_data(ticker):
+    """Get cached stock data if still valid"""
+    if ticker in _stock_cache:
+        cached = _stock_cache[ticker]
+        if datetime.now() - cached['timestamp'] < timedelta(seconds=STOCK_CACHE_TTL):
+            return cached['data']
+    return None
+
+def _set_cached_stock_data(ticker, data):
+    """Cache stock data with timestamp"""
+    _stock_cache[ticker] = {
+        'data': data,
+        'timestamp': datetime.now()
+    }
+
+
+def _format_market_cap(cap):
+    """Format market cap in billions/trillions"""
+    if cap is None:
+        return 'N/A'
+    if cap >= 1e12:
+        return f"{cap / 1e12:.2f}T"
+    elif cap >= 1e9:
+        return f"{cap / 1e9:.1f}B"
+    elif cap >= 1e6:
+        return f"{cap / 1e6:.1f}M"
+    return f"{cap:.0f}"
+
+
+def _format_number(num):
+    """Format large numbers"""
+    if num is None:
+        return 'N/A'
+    if num >= 1e9:
+        return f"{num / 1e9:.2f}B"
+    elif num >= 1e6:
+        return f"{num / 1e6:.1f}M"
+    elif num >= 1e3:
+        return f"{num / 1e3:.1f}K"
+    return f"{num:.0f}"
+
+
+@app.route('/api/stock/<ticker>')
+@require_api_key
+def get_stock_details(ticker):
+    """
+    Get comprehensive stock details for a ticker.
+    Uses yfinance with 5-minute caching.
+    """
+    ticker = ticker.upper().strip()
+    
+    # Validate ticker format
+    if not ticker.isalpha() or len(ticker) > 5:
+        return jsonify({'error': 'Invalid ticker format'}), 400
+    
+    # Check cache first
+    cached = _get_cached_stock_data(ticker)
+    if cached:
+        return jsonify(cached)
+    
+    try:
+        # Try to get real data from yfinance
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            
+            # Get current price data
+            hist = stock.history(period="2d", interval="1d")
+            
+            if len(hist) >= 1:
+                current_price = hist['Close'].iloc[-1]
+                previous_close = hist['Close'].iloc[-2] if len(hist) >= 2 else info.get('previousClose', current_price)
+                day_high = hist['High'].iloc[-1]
+                day_low = hist['Low'].iloc[-1]
+                volume = hist['Volume'].iloc[-1]
+            else:
+                current_price = info.get('currentPrice', info.get('regularMarketPrice', 0))
+                previous_close = info.get('previousClose', 0)
+                day_high = info.get('dayHigh', 0)
+                day_low = info.get('dayLow', 0)
+                volume = info.get('volume', 0)
+            
+            # Calculate change
+            change = current_price - previous_close if previous_close else 0
+            change_percent = (change / previous_close * 100) if previous_close else 0
+            
+            # Format the response
+            result = {
+                'ticker': ticker,
+                'name': info.get('longName', info.get('shortName', ticker)),
+                'price': round(current_price, 2),
+                'change': round(change, 2),
+                'change_percent': round(change_percent, 2),
+                'market_cap': _format_market_cap(info.get('marketCap')),
+                'volume': int(volume) if volume else 0,
+                'avg_volume': int(info.get('averageVolume', volume or 0)),
+                'pe_ratio': round(info.get('trailingPE', info.get('forwardPE', 0)), 2) if info.get('trailingPE') or info.get('forwardPE') else 'N/A',
+                'eps': round(info.get('trailingEps', 0), 2) if info.get('trailingEps') else 'N/A',
+                'dividend_yield': round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') else 0,
+                '52_week_high': round(info.get('fiftyTwoWeekHigh', 0), 2) if info.get('fiftyTwoWeekHigh') else 'N/A',
+                '52_week_low': round(info.get('fiftyTwoWeekLow', 0), 2) if info.get('fiftyTwoWeekLow') else 'N/A',
+                'day_high': round(day_high, 2) if day_high else 'N/A',
+                'day_low': round(day_low, 2) if day_low else 'N/A',
+                'open': round(info.get('open', current_price), 2),
+                'previous_close': round(previous_close, 2),
+                'sector': info.get('sector', 'N/A'),
+                'industry': info.get('industry', 'N/A'),
+                'employees': info.get('fullTimeEmployees', 'N/A'),
+                'website': info.get('website', ''),
+                'description': info.get('longBusinessSummary', info.get('description', 'No description available')),
+                'source': 'yfinance',
+                'cached_at': datetime.now().isoformat()
+            }
+            
+        except ImportError:
+            # yfinance not available, return mock data
+            logger.warning(f"yfinance not available, returning mock data for {ticker}")
+            result = _get_mock_stock_data(ticker)
+            
+        except Exception as e:
+            logger.warning(f"Error fetching from yfinance for {ticker}: {e}")
+            result = _get_mock_stock_data(ticker)
+        
+        # Cache the result
+        _set_cached_stock_data(ticker, result)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting stock details for {ticker}: {e}")
+        return jsonify({'error': 'Failed to get stock details'}), 500
+
+
+def _get_mock_stock_data(ticker):
+    """Generate mock stock data as fallback"""
+    import random
+    
+    base_price = random.uniform(50, 500)
+    change_pct = random.uniform(-5, 5)
+    change = base_price * change_pct / 100
+    
+    return {
+        'ticker': ticker,
+        'name': f'{ticker} Inc.',
+        'price': round(base_price, 2),
+        'change': round(change, 2),
+        'change_percent': round(change_pct, 2),
+        'market_cap': f'{random.uniform(1, 3000):.1f}B',
+        'volume': int(random.uniform(1e6, 100e6)),
+        'avg_volume': int(random.uniform(5e6, 50e6)),
+        'pe_ratio': round(random.uniform(10, 40), 1),
+        'eps': round(random.uniform(1, 10), 2),
+        'dividend_yield': round(random.uniform(0, 4), 2),
+        '52_week_high': round(base_price * 1.3, 2),
+        '52_week_low': round(base_price * 0.7, 2),
+        'day_high': round(base_price * 1.02, 2),
+        'day_low': round(base_price * 0.98, 2),
+        'open': round(base_price * (1 - change_pct/200), 2),
+        'previous_close': round(base_price - change, 2),
+        'sector': random.choice(['Technology', 'Healthcare', 'Finance', 'Consumer', 'Energy']),
+        'industry': random.choice(['Software', 'Services', 'Manufacturing', 'Retail']),
+        'employees': random.randint(1000, 500000),
+        'website': f'https://www.{ticker.lower()}.com',
+        'description': f'{ticker} Inc. is a leading company in its industry, providing innovative products and services to customers worldwide.',
+        'source': 'mock',
+        'cached_at': datetime.now().isoformat()
+    }
+
+
+@app.route('/api/stock/<ticker>/chart')
+@require_api_key
+def get_stock_chart(ticker):
+    """
+    Get historical price data for charting.
+    
+    Query params:
+        - period: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, max (default: 1mo)
+        - interval: 1m, 5m, 15m, 30m, 1h, 1d, 1wk, 1mo (default: 1d)
+    """
+    ticker = ticker.upper().strip()
+    
+    # Validate ticker
+    if not ticker.isalpha() or len(ticker) > 5:
+        return jsonify({'error': 'Invalid ticker format'}), 400
+    
+    # Get query params
+    period = request.args.get('period', '1mo')
+    interval = request.args.get('interval', '1d')
+    
+    # Validate period
+    valid_periods = ['1d', '5d', '1mo', '3mo', '6mo', '1y', '2y', '5y', 'max']
+    if period not in valid_periods:
+        return jsonify({'error': f'Invalid period. Use: {", ".join(valid_periods)}'}), 400
+    
+    # Validate interval
+    valid_intervals = ['1m', '5m', '15m', '30m', '1h', '1d', '1wk', '1mo']
+    if interval not in valid_intervals:
+        return jsonify({'error': f'Invalid interval. Use: {", ".join(valid_intervals)}'}), 400
+    
+    try:
+        # Try to get real data from yfinance
+        try:
+            import yfinance as yf
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=period, interval=interval)
+            
+            if hist.empty:
+                raise ValueError("No historical data available")
+            
+            # Format data for Chart.js
+            chart_data = []
+            for index, row in hist.iterrows():
+                chart_data.append({
+                    'date': index.strftime('%Y-%m-%d %H:%M') if hasattr(index, 'strftime') else str(index),
+                    'open': round(row['Open'], 2),
+                    'high': round(row['High'], 2),
+                    'low': round(row['Low'], 2),
+                    'close': round(row['Close'], 2),
+                    'volume': int(row['Volume'])
+                })
+            
+            result = {
+                'ticker': ticker,
+                'period': period,
+                'interval': interval,
+                'data': chart_data,
+                'source': 'yfinance'
+            }
+            
+        except ImportError:
+            logger.warning("yfinance not available, returning mock chart data")
+            result = _get_mock_chart_data(ticker, period, interval)
+            
+        except Exception as e:
+            logger.warning(f"Error fetching chart data from yfinance: {e}")
+            result = _get_mock_chart_data(ticker, period, interval)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error getting chart data for {ticker}: {e}")
+        return jsonify({'error': 'Failed to get chart data'}), 500
+
+
+def _get_mock_chart_data(ticker, period, interval):
+    """Generate mock chart data"""
+    import random
+    from datetime import datetime, timedelta
+    
+    # Determine number of data points based on period and interval
+    period_days = {
+        '1d': 1, '5d': 5, '1mo': 30, '3mo': 90,
+        '6mo': 180, '1y': 365, '2y': 730, '5y': 1825, 'max': 2520
+    }
+    
+    days = period_days.get(period, 30)
+    
+    # Determine interval in days
+    interval_days = {
+        '1m': 1/1440, '5m': 5/1440, '15m': 15/1440, '30m': 30/1440,
+        '1h': 1/24, '1d': 1, '1wk': 7, '1mo': 30
+    }
+    
+    interval_d = interval_days.get(interval, 1)
+    num_points = min(int(days / interval_d), 500)  # Cap at 500 points
+    
+    base_price = random.uniform(50, 500)
+    chart_data = []
+    
+    end_date = datetime.now()
+    
+    for i in range(num_points):
+        if interval in ['1m', '5m', '15m', '30m', '1h']:
+            # Intraday data
+            date = end_date - timedelta(hours=num_points - i)
+        else:
+            # Daily/weekly/monthly data
+            date = end_date - timedelta(days=int((num_points - i) * interval_d))
+        
+        # Random walk
+        change = random.gauss(0, base_price * 0.02)
+        open_price = base_price + change
+        high_price = open_price + abs(random.gauss(0, base_price * 0.01))
+        low_price = open_price - abs(random.gauss(0, base_price * 0.01))
+        close_price = open_price + random.gauss(0, base_price * 0.01)
+        
+        chart_data.append({
+            'date': date.strftime('%Y-%m-%d %H:%M'),
+            'open': round(open_price, 2),
+            'high': round(high_price, 2),
+            'low': round(low_price, 2),
+            'close': round(close_price, 2),
+            'volume': int(random.uniform(1e6, 100e6))
+        })
+        
+        base_price = close_price
+    
+    return {
+        'ticker': ticker,
+        'period': period,
+        'interval': interval,
+        'data': chart_data,
+        'source': 'mock'
+    }
+
+
+@app.route('/api/stock/<ticker>/news')
+@require_api_key
+def get_stock_news(ticker):
+    """
+    Get recent news articles mentioning this ticker.
+    Returns last 5 articles from the database.
+    """
+    ticker = ticker.upper().strip()
+    
+    try:
+        # Get recent articles that mention this ticker
+        with db.get_connection() as conn:
+            # Search in mentions and title/content
+            rows = conn.execute("""
+                SELECT DISTINCT 
+                    a.id, a.title, a.source, a.url, a.published_at, a.sentiment_score,
+                    a.mentions
+                FROM articles a
+                WHERE (
+                    a.mentions LIKE ? 
+                    OR UPPER(a.title) LIKE ? 
+                    OR UPPER(a.content) LIKE ?
+                )
+                AND a.published_at > datetime('now', '-7 days')
+                ORDER BY a.published_at DESC
+                LIMIT 5
+            """, (f'%"{ticker}"%', f'%{ticker}%', f'%{ticker}%')).fetchall()
+            
+            articles = []
+            for row in rows:
+                # Parse mentions JSON
+                mentions = []
+                try:
+                    mentions = json.loads(row['mentions']) if row['mentions'] else []
+                except:
+                    mentions = []
+                
+                articles.append({
+                    'id': row['id'],
+                    'title': row['title'],
+                    'source': row['source'],
+                    'url': row['url'],
+                    'published_at': row['published_at'],
+                    'sentiment_score': row['sentiment_score'],
+                    'mentions': mentions
+                })
+        
+        return jsonify({
+            'ticker': ticker,
+            'articles': articles,
+            'count': len(articles)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting news for {ticker}: {e}")
+        return jsonify({'error': 'Failed to get news'}), 500
+
+
 @app.route('/api/run', methods=['POST'])
 @require_api_key
 def api_run_bot():
@@ -1312,6 +1887,480 @@ def api_run_bot():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/search')
+@require_api_key
+def advanced_search():
+    """
+    Advanced search across articles, companies, and alerts.
+    
+    Query params:
+        - q: Search query string
+        - type: Search type - 'all', 'articles', 'companies', 'alerts' (default: all)
+        - date_from: Start date (ISO format)
+        - date_to: End date (ISO format)
+        - sources: List of source filters
+        - sentiment: Sentiment filter - 'positive', 'negative', 'neutral'
+        - tickers: List of ticker symbols to filter by
+        - min_mentions: Minimum mention count for companies
+        - limit: Maximum results per category (default: 50, max: 100)
+        - offset: Pagination offset (default: 0)
+    
+    Returns categorized results with counts and highlighted matches.
+    """
+    query = request.args.get('q', '').strip()
+    search_type = request.args.get('type', 'all')
+    
+    # Parse filters
+    date_from = request.args.get('date_from')
+    date_to = request.args.get('date_to')
+    sources = request.args.getlist('sources')
+    sentiment = request.args.get('sentiment')
+    tickers = [t.upper().strip() for t in request.args.getlist('tickers') if t.strip()]
+    min_mentions = request.args.get('min_mentions', type=int)
+    limit = min(request.args.get('limit', 50, type=int), 100)
+    offset = request.args.get('offset', 0, type=int)
+    
+    # Prepare result containers
+    results = {
+        'query': query,
+        'type': search_type,
+        'filters': {
+            'date_from': date_from,
+            'date_to': date_to,
+            'sources': sources,
+            'sentiment': sentiment,
+            'tickers': tickers,
+            'min_mentions': min_mentions
+        },
+        'articles': {'items': [], 'total': 0, 'query': query},
+        'companies': {'items': [], 'total': 0, 'query': query},
+        'alerts': {'items': [], 'total': 0, 'query': query}
+    }
+    
+    try:
+        with db.get_connection() as conn:
+            # Search Articles
+            if search_type in ('all', 'articles'):
+                article_results = search_articles(conn, query, {
+                    'date_from': date_from,
+                    'date_to': date_to,
+                    'sources': sources,
+                    'sentiment': sentiment,
+                    'tickers': tickers,
+                    'limit': limit,
+                    'offset': offset
+                })
+                results['articles'] = article_results
+            
+            # Search Companies
+            if search_type in ('all', 'companies'):
+                company_results = search_companies(conn, query, {
+                    'min_mentions': min_mentions,
+                    'date_from': date_from,
+                    'date_to': date_to,
+                    'limit': limit,
+                    'offset': offset
+                })
+                results['companies'] = company_results
+            
+            # Search Alerts
+            if search_type in ('all', 'alerts'):
+                alert_results = search_alerts(conn, query, {
+                    'date_from': date_from,
+                    'date_to': date_to,
+                    'tickers': tickers,
+                    'limit': limit,
+                    'offset': offset
+                })
+                results['alerts'] = alert_results
+        
+        # Calculate total results
+        results['total'] = (
+            results['articles']['total'] +
+            results['companies']['total'] +
+            results['alerts']['total']
+        )
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        logger.error("Search error", extra={"error": str(e), "query": query})
+        return jsonify({'error': 'Search failed', 'message': str(e)}), 500
+
+
+def search_articles(conn, query, filters):
+    """Search articles with full-text search and filtering."""
+    conditions = []
+    params = []
+    
+    # Text search in title and content
+    if query:
+        conditions.append("(title LIKE ? OR content LIKE ?)")
+        search_pattern = f"%{query}%"
+        params.extend([search_pattern, search_pattern])
+    
+    # Date filters
+    if filters.get('date_from'):
+        conditions.append("scraped_at >= ?")
+        params.append(filters['date_from'])
+    if filters.get('date_to'):
+        conditions.append("scraped_at <= ?")
+        params.append(filters['date_to'])
+    
+    # Source filter
+    if filters.get('sources'):
+        placeholders = ','.join('?' * len(filters['sources']))
+        conditions.append(f"source IN ({placeholders})")
+        params.extend(filters['sources'])
+    
+    # Sentiment filter
+    if filters.get('sentiment'):
+        if filters['sentiment'] == 'positive':
+            conditions.append("sentiment_score > 0.2")
+        elif filters['sentiment'] == 'negative':
+            conditions.append("sentiment_score < -0.2")
+        elif filters['sentiment'] == 'neutral':
+            conditions.append("(sentiment_score >= -0.2 AND sentiment_score <= 0.2)")
+    
+    # Ticker filter - articles mentioning specific companies
+    if filters.get('tickers'):
+        ticker_placeholders = ','.join('?' * len(filters['tickers']))
+        conditions.append(f"""
+            id IN (
+                SELECT DISTINCT article_id 
+                FROM company_mentions 
+                WHERE company_ticker IN ({ticker_placeholders})
+            )
+        """)
+        params.extend(filters['tickers'])
+    
+    # Build WHERE clause
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+    
+    # Count total
+    count_sql = f"SELECT COUNT(*) as count FROM articles WHERE {where_clause}"
+    total = conn.execute(count_sql, params).fetchone()['count']
+    
+    # Build main query with relevance scoring
+    # Title matches get higher relevance than content matches
+    if query:
+        relevance_sql = f"""
+            SELECT *,
+                CASE 
+                    WHEN title LIKE ? THEN 3
+                    WHEN content LIKE ? THEN 1
+                    ELSE 0
+                END as relevance
+            FROM articles
+            WHERE {where_clause}
+            ORDER BY relevance DESC, scraped_at DESC
+            LIMIT ? OFFSET ?
+        """
+        search_pattern = f"%{query}%"
+        query_params = [search_pattern, search_pattern] + params + [filters.get('limit', 50), filters.get('offset', 0)]
+    else:
+        relevance_sql = f"""
+            SELECT *, 0 as relevance
+            FROM articles
+            WHERE {where_clause}
+            ORDER BY scraped_at DESC
+            LIMIT ? OFFSET ?
+        """
+        query_params = params + [filters.get('limit', 50), filters.get('offset', 0)]
+    
+    rows = conn.execute(relevance_sql, query_params).fetchall()
+    
+    items = []
+    for row in rows:
+        item = {
+            'id': row['id'],
+            'title': row['title'],
+            'url': row['url'],
+            'source': row['source'],
+            'published_at': row['published_at'],
+            'scraped_at': row['scraped_at'],
+            'sentiment_score': row['sentiment_score'],
+            'mentions': json.loads(row['mentions']) if row['mentions'] else [],
+            'relevance': row['relevance'],
+            'highlight': create_highlight(row['title'], row['content'], query)
+        }
+        items.append(item)
+    
+    return {'items': items, 'total': total, 'query': query}
+
+
+def search_companies(conn, query, filters):
+    """Search companies by ticker or name with mention statistics."""
+    conditions = []
+    params = []
+    
+    # Text search on ticker or name
+    if query:
+        conditions.append("(company_ticker LIKE ? OR company_name LIKE ?)")
+        search_pattern = f"%{query}%"
+        params.extend([search_pattern.upper(), search_pattern])
+    
+    # Date filters for mentions
+    date_conditions = []
+    if filters.get('date_from'):
+        date_conditions.append("mentioned_at >= ?")
+        params.append(filters['date_from'])
+    if filters.get('date_to'):
+        date_conditions.append("mentioned_at <= ?")
+        params.append(filters['date_to'])
+    
+    date_where = " AND ".join(date_conditions) if date_conditions else "1=1"
+    
+    # Build main query
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+    
+    # Get company mention counts with date filtering
+    sql = f"""
+        SELECT 
+            company_ticker,
+            company_name,
+            COUNT(*) as mention_count,
+            COUNT(DISTINCT article_id) as article_count,
+            MAX(mentioned_at) as last_mentioned
+        FROM company_mentions
+        WHERE {date_where}
+        GROUP BY company_ticker, company_name
+        HAVING {where_clause}
+        {f"AND mention_count >= {filters['min_mentions']}" if filters.get('min_mentions') else ""}
+        ORDER BY mention_count DESC
+        LIMIT ? OFFSET ?
+    """
+    
+    query_params = params + [filters.get('limit', 50), filters.get('offset', 0)]
+    rows = conn.execute(sql, query_params).fetchall()
+    
+    # Get total count
+    count_sql = f"""
+        SELECT COUNT(DISTINCT company_ticker) as count
+        FROM company_mentions
+        WHERE {date_where}
+        GROUP BY company_ticker
+        HAVING {where_clause}
+        {f"AND COUNT(*) >= {filters['min_mentions']}" if filters.get('min_mentions') else ""}
+    """
+    total_rows = conn.execute(count_sql, params[:-2] if params else []).fetchall()
+    total = len(total_rows)
+    
+    items = []
+    for row in rows:
+        # Get recent articles for this company
+        recent_articles = conn.execute("""
+            SELECT a.title, a.source, a.scraped_at, a.sentiment_score
+            FROM articles a
+            JOIN company_mentions cm ON a.id = cm.article_id
+            WHERE cm.company_ticker = ?
+            ORDER BY a.scraped_at DESC
+            LIMIT 3
+        """, (row['company_ticker'],)).fetchall()
+        
+        item = {
+            'ticker': row['company_ticker'],
+            'name': row['company_name'],
+            'mention_count': row['mention_count'],
+            'article_count': row['article_count'],
+            'last_mentioned': row['last_mentioned'],
+            'recent_articles': [
+                {
+                    'title': ra['title'],
+                    'source': ra['source'],
+                    'scraped_at': ra['scraped_at'],
+                    'sentiment': ra['sentiment_score']
+                }
+                for ra in recent_articles
+            ]
+        }
+        items.append(item)
+    
+    return {'items': items, 'total': total, 'query': query}
+
+
+def search_alerts(conn, query, filters):
+    """Search alerts by message content and metadata."""
+    conditions = []
+    params = []
+    
+    # Text search on message
+    if query:
+        conditions.append("message LIKE ?")
+        params.append(f"%{query}%")
+    
+    # Date filters
+    if filters.get('date_from'):
+        conditions.append("created_at >= ?")
+        params.append(filters['date_from'])
+    if filters.get('date_to'):
+        conditions.append("created_at <= ?")
+        params.append(filters['date_to'])
+    
+    # Ticker filter
+    if filters.get('tickers'):
+        placeholders = ','.join('?' * len(filters['tickers']))
+        conditions.append(f"company_ticker IN ({placeholders})")
+        params.extend(filters['tickers'])
+    
+    # Build WHERE clause
+    where_clause = " AND ".join(conditions) if conditions else "1=1"
+    
+    # Count total
+    count_sql = f"SELECT COUNT(*) as count FROM alerts WHERE {where_clause}"
+    total = conn.execute(count_sql, params).fetchone()['count']
+    
+    # Main query
+    sql = f"""
+        SELECT *
+        FROM alerts
+        WHERE {where_clause}
+        ORDER BY created_at DESC
+        LIMIT ? OFFSET ?
+    """
+    query_params = params + [filters.get('limit', 50), filters.get('offset', 0)]
+    
+    rows = conn.execute(sql, query_params).fetchall()
+    
+    items = []
+    for row in rows:
+        item = {
+            'id': row['id'],
+            'type': row['alert_type'],
+            'ticker': row['company_ticker'],
+            'company': row['company_name'],
+            'severity': row['severity'],
+            'message': row['message'],
+            'details': json.loads(row['details']) if row['details'] else {},
+            'created_at': row['created_at'],
+            'acknowledged': row['acknowledged'],
+            'highlight': create_highlight(row['message'], None, query) if query else None
+        }
+        items.append(item)
+    
+    return {'items': items, 'total': total, 'query': query}
+
+
+def create_highlight(title, content, query):
+    """Create highlighted snippet from text matching query."""
+    if not query:
+        return {'title': title, 'snippet': content[:200] + '...' if content and len(content) > 200 else content}
+    
+    # Highlight title
+    highlighted_title = title
+    if title:
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+        highlighted_title = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", title)
+    
+    # Find snippet around first match in content
+    snippet = ""
+    if content:
+        pattern = re.compile(re.escape(query), re.IGNORECASE)
+        match = pattern.search(content)
+        if match:
+            start = max(0, match.start() - 80)
+            end = min(len(content), match.end() + 80)
+            snippet = ('...' if start > 0 else '') + content[start:end] + ('...' if end < len(content) else '')
+            snippet = pattern.sub(lambda m: f"<mark>{m.group()}</mark>", snippet)
+        else:
+            snippet = content[:160] + '...' if len(content) > 160 else content
+    
+    return {'title': highlighted_title, 'snippet': snippet}
+
+
+@app.route('/api/search/suggestions')
+@require_api_key
+def search_suggestions():
+    """
+    Get search suggestions as user types.
+    
+    Query params:
+        - q: Partial query string
+        - limit: Maximum suggestions (default: 10)
+    
+    Returns suggestions from tickers, company names, and sources.
+    """
+    query = request.args.get('q', '').strip()
+    limit = min(request.args.get('limit', 10, type=int), 20)
+    
+    if len(query) < 2:
+        return jsonify({'suggestions': [], 'query': query})
+    
+    suggestions = []
+    seen = set()
+    
+    try:
+        with db.get_connection() as conn:
+            search_pattern = f"%{query}%"
+            
+            # Suggest tickers
+            ticker_rows = conn.execute("""
+                SELECT DISTINCT company_ticker as value, 'ticker' as type
+                FROM company_mentions
+                WHERE company_ticker LIKE ?
+                LIMIT ?
+            """, (search_pattern.upper(), limit)).fetchall()
+            
+            for row in ticker_rows:
+                if row['value'] not in seen:
+                    suggestions.append({'value': row['value'], 'type': row['type']})
+                    seen.add(row['value'])
+            
+            # Suggest company names
+            name_rows = conn.execute("""
+                SELECT DISTINCT company_name as value, 'company' as type
+                FROM company_mentions
+                WHERE company_name LIKE ?
+                LIMIT ?
+            """, (search_pattern, limit)).fetchall()
+            
+            for row in name_rows:
+                if row['value'] not in seen:
+                    suggestions.append({'value': row['value'], 'type': row['type']})
+                    seen.add(row['value'])
+            
+            # Suggest sources
+            source_rows = conn.execute("""
+                SELECT DISTINCT source as value, 'source' as type
+                FROM articles
+                WHERE source LIKE ?
+                LIMIT ?
+            """, (search_pattern, limit)).fetchall()
+            
+            for row in source_rows:
+                if row['value'] not in seen:
+                    suggestions.append({'value': row['value'], 'type': row['type']})
+                    seen.add(row['value'])
+        
+        return jsonify({'suggestions': suggestions[:limit], 'query': query})
+        
+    except Exception as e:
+        logger.error("Suggestions error", extra={"error": str(e)})
+        return jsonify({'suggestions': [], 'query': query})
+
+
+@app.route('/api/sources/all')
+@require_api_key
+def api_all_sources():
+    """Get all unique article sources for filter dropdown."""
+    try:
+        with db.get_connection() as conn:
+            rows = conn.execute("""
+                SELECT DISTINCT source, COUNT(*) as count
+                FROM articles
+                GROUP BY source
+                ORDER BY count DESC
+            """).fetchall()
+            
+            return jsonify([
+                {'source': row['source'], 'count': row['count']}
+                for row in rows
+            ])
+    except Exception as e:
+        logger.error("Error getting sources", extra={"error": str(e)})
+        return jsonify([])
 
 
 @app.route('/api/economic-calendar')

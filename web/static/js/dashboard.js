@@ -343,8 +343,8 @@ function renderBlueskyPosts(container, posts) {
         const initial = (post.author.displayName || post.author.handle).charAt(0).toUpperCase();
         const postUrl = getBlueskyPostUrl(post.uri, post.author.handle);
         
-        // Highlight stock tickers
-        const highlightedText = highlightTickers(escapeHtml(post.text));
+        // Highlight stock tickers (clickable)
+        const highlightedText = highlightTickersClickable(escapeHtml(post.text));
         
         // Compact engagement stats
         const engagementHtml = [];
@@ -503,17 +503,11 @@ async function executeCommand() {
 // Look up a stock ticker
 async function lookupStock(symbol) {
     try {
-        console.log(`[Stock Lookup] Fetching details for ${symbol}`);
+        console.log(`[Stock Lookup] Opening modal for ${symbol}`);
         showToast(`Looking up ${symbol}...`, 'info');
         
-        // Fetch detailed stock info
-        const response = await fetchWithTimeout(`/api/stock/${symbol}/details`);
-        const data = await response.json();
-        
-        console.log('[Stock Lookup] Received data:', data);
-        
-        // Display in stock details panel
-        displayStockDetails(data);
+        // Open the stock detail modal
+        await openStockModal(symbol);
         
         // Also add to watchlist
         await addToWatchlist(symbol);
@@ -521,7 +515,7 @@ async function lookupStock(symbol) {
         showToast(`${symbol} loaded successfully`, 'success');
     } catch (error) {
         console.error('Error looking up stock:', error);
-        showToast(`Error looking up ${symbol}`, 'error');
+        showToast(`Error looking up ${symbol}`, 'error`);
     }
 }
 
@@ -738,7 +732,7 @@ async function loadMarketMonitor() {
                 const changeStr = change ? `${arrow}${Math.abs(change).toFixed(2)}%` : '--.--';
                 
                 return `
-                    <div class="market-item" title="${info.label}">
+                    <div class="market-item" title="${info.label}" onclick="openStockModal('${etf}')" style="cursor: pointer;">
                         <span class="market-symbol">${info.name}</span>
                         <span class="market-price">${typeof price === 'number' ? price.toFixed(2) : price}</span>
                         <span class="market-change ${changeClass}">${changeStr}</span>
@@ -805,7 +799,7 @@ async function loadMarketMovers() {
                 return `
                     <div class="mover-item">
                         <span class="mover-rank">${i + 1}</span>
-                        <span class="mover-symbol">${stock.symbol}</span>
+                        <span class="mover-symbol ticker-clickable" onclick="event.stopPropagation(); openStockModal('${stock.symbol}')">${stock.symbol}</span>
                         <span class="mover-name">$${stock.price.toFixed(2)}</span>
                         <span class="mover-change ${changeClass}">${changeStr}</span>
                     </div>
@@ -936,7 +930,7 @@ async function loadTopCompanies() {
     const tickers = companies.map(c => c.company_ticker);
     
     const html = companies.map((company, index) => `
-        <div class="company-item" data-ticker="${company.company_ticker}">
+        <div class="company-item" data-ticker="${company.company_ticker}" onclick="openStockModal('${company.company_ticker}')" style="cursor: pointer;">
             <div class="company-info">
                 <span class="company-rank ${index < 3 ? 'top' : ''}">${index + 1}</span>
                 <div class="company-details">
@@ -1009,39 +1003,161 @@ function updatePriceDisplay(prices) {
     });
 }
 
-// Load articles
+// Articles pagination state
+let articlesState = {
+    articles: [],
+    offset: 0,
+    limit: 50,
+    loading: false,
+    hasMore: true,
+    filters: {
+        sources: null,
+        tickers: null,
+        search: null,
+        fromDate: null,
+        toDate: null,
+        sentiment: null
+    }
+};
+
+// Load articles (initial load with infinite scroll support)
 async function loadArticles() {
-    const response = await fetchWithTimeout('/api/articles?limit=20');
-    const articles = await response.json();
+    // Reset state for fresh load
+    articlesState.offset = 0;
+    articlesState.articles = [];
+    articlesState.hasMore = true;
     
     const container = document.getElementById('articlesList');
+    container.innerHTML = '<div class="loading-indicator"><i class="fas fa-spinner fa-spin"></i> Loading articles...</div>';
     
-    if (articles.length === 0) {
-        container.innerHTML = '<div class="empty-state">No articles yet</div>';
-        return;
-    }
-    
-    // Update filter options
-    const sources = [...new Set(articles.map(a => a.source))];
-    const filterSelect = document.getElementById('articleFilter');
-    filterSelect.innerHTML = '<option value="all">All Sources</option>' + 
-        sources.map(s => `<option value="${s}">${s}</option>`).join('');
-    
-    filterSelect.addEventListener('change', (e) => {
-        const filtered = e.target.value === 'all' 
-            ? articles 
-            : articles.filter(a => a.source === e.target.value);
-        renderArticles(filtered);
-    });
-    
-    renderArticles(articles);
+    await loadMoreArticles();
+    setupInfiniteScroll();
+    setupArticleFilters();
 }
 
-function renderArticles(articles) {
+// Load more articles (for pagination/infinite scroll)
+async function loadMoreArticles() {
+    if (articlesState.loading || !articlesState.hasMore) return;
+    
+    articlesState.loading = true;
     const container = document.getElementById('articlesList');
     
-    container.innerHTML = articles.map(article => `
-        <div class="article-item">
+    // Show loading indicator at bottom if we already have articles
+    if (articlesState.articles.length > 0) {
+        const existingLoader = container.querySelector('.articles-loading-more');
+        if (!existingLoader) {
+            const loader = document.createElement('div');
+            loader.className = 'articles-loading-more';
+            loader.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading more...';
+            container.appendChild(loader);
+        }
+    }
+    
+    try {
+        // Build query URL
+        const params = new URLSearchParams();
+        params.append('limit', articlesState.limit);
+        params.append('offset', articlesState.offset);
+        
+        if (articlesState.filters.sources) {
+            params.append('sources', articlesState.filters.sources.join(','));
+        }
+        if (articlesState.filters.tickers) {
+            params.append('tickers', articlesState.filters.tickers.join(','));
+        }
+        if (articlesState.filters.search) {
+            params.append('search', articlesState.filters.search);
+        }
+        if (articlesState.filters.fromDate) {
+            params.append('from_date', articlesState.filters.fromDate);
+        }
+        if (articlesState.filters.toDate) {
+            params.append('to_date', articlesState.filters.toDate);
+        }
+        if (articlesState.filters.sentiment) {
+            params.append('sentiment', articlesState.filters.sentiment);
+        }
+        
+        const response = await fetchWithTimeout(`/api/articles?${params}`);
+        const data = await response.json();
+        
+        // Remove loading indicator
+        const loader = container.querySelector('.articles-loading-more');
+        if (loader) loader.remove();
+        
+        // Handle both old format (array) and new format (object with metadata)
+        let newArticles, total, hasMore;
+        if (Array.isArray(data)) {
+            // Old format - backward compatibility
+            newArticles = data;
+            total = null;
+            hasMore = newArticles.length === articlesState.limit;
+        } else {
+            // New format with metadata
+            newArticles = data.articles || [];
+            total = data.total;
+            hasMore = data.has_more;
+        }
+        
+        // Clear loading message on first load
+        if (articlesState.offset === 0) {
+            container.innerHTML = '';
+        }
+        
+        if (newArticles.length === 0 && articlesState.articles.length === 0) {
+            container.innerHTML = '<div class="empty-state">No articles found</div>';
+            return;
+        }
+        
+        // Append new articles
+        articlesState.articles.push(...newArticles);
+        articlesState.hasMore = hasMore;
+        articlesState.offset += newArticles.length;
+        
+        // Render only new articles
+        renderArticlesAppend(newArticles);
+        
+        // Update filter options on first load
+        if (articlesState.offset === newArticles.length) {
+            updateArticleFilterOptions();
+        }
+        
+        // Show "Load More" button if we have more but user prefers manual loading
+        if (hasMore && !document.getElementById('loadMoreBtn')) {
+            const loadMoreBtn = document.createElement('button');
+            loadMoreBtn.id = 'loadMoreBtn';
+            loadMoreBtn.className = 'load-more-btn';
+            loadMoreBtn.innerHTML = '<i class="fas fa-chevron-down"></i> Load More';
+            loadMoreBtn.onclick = () => loadMoreArticles();
+            container.appendChild(loadMoreBtn);
+        } else if (!hasMore && document.getElementById('loadMoreBtn')) {
+            const btn = document.getElementById('loadMoreBtn');
+            btn.innerHTML = '<i class="fas fa-check"></i> All articles loaded';
+            btn.disabled = true;
+        }
+        
+    } catch (error) {
+        console.error('Error loading articles:', error);
+        if (articlesState.articles.length === 0) {
+            container.innerHTML = '<div class="empty-state">Error loading articles</div>';
+        } else {
+            showToast('Error loading more articles', 'error');
+        }
+    } finally {
+        articlesState.loading = false;
+    }
+}
+
+// Render articles and append to container
+function renderArticlesAppend(articles) {
+    const container = document.getElementById('articlesList');
+    
+    // Remove load more button if exists (will re-add at end)
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (loadMoreBtn) loadMoreBtn.remove();
+    
+    const articlesHtml = articles.map(article => `
+        <div class="article-item" data-article-id="${article.id}">
             <div class="article-header">
                 <div class="article-title">
                     <a href="${article.url}" target="_blank" rel="noopener">
@@ -1054,6 +1170,135 @@ function renderArticles(articles) {
                 <span>${timeAgo(article.scraped_at)}</span>
                 <div>
                     ${article.mentions.map(m => `<span class="mention-badge">${m}</span>`).join('')}
+                    ${article.sentiment !== null ? `
+                        <span class="sentiment-badge ${getSentimentClass(article.sentiment)}">
+                            ${article.sentiment > 0 ? '+' : ''}${article.sentiment.toFixed(2)}
+                        </span>
+                    ` : ''}
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    container.insertAdjacentHTML('beforeend', articlesHtml);
+    
+    // Re-add load more button if we have more articles
+    if (articlesState.hasMore) {
+        const btn = document.createElement('button');
+        btn.id = 'loadMoreBtn';
+        btn.className = 'load-more-btn';
+        btn.innerHTML = '<i class="fas fa-chevron-down"></i> Load More';
+        btn.onclick = () => loadMoreArticles();
+        container.appendChild(btn);
+    }
+}
+
+// Setup infinite scroll
+function setupInfiniteScroll() {
+    const container = document.getElementById('articlesList');
+    if (!container) return;
+    
+    // Use Intersection Observer for infinite scroll
+    const observerOptions = {
+        root: container,
+        rootMargin: '100px',
+        threshold: 0.1
+    };
+    
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting && articlesState.hasMore && !articlesState.loading) {
+                loadMoreArticles();
+            }
+        });
+    }, observerOptions);
+    
+    // Create sentinel element at bottom
+    let sentinel = document.getElementById('articles-sentinel');
+    if (!sentinel) {
+        sentinel = document.createElement('div');
+        sentinel.id = 'articles-sentinel';
+        sentinel.style.height = '10px';
+        container.appendChild(sentinel);
+    }
+    
+    observer.observe(sentinel);
+}
+
+// Setup article filters
+function setupArticleFilters() {
+    // Source filter
+    const filterSelect = document.getElementById('articleFilter');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'all') {
+                articlesState.filters.sources = null;
+            } else {
+                articlesState.filters.sources = [e.target.value];
+            }
+            // Reload with filter
+            articlesState.offset = 0;
+            articlesState.articles = [];
+            articlesState.hasMore = true;
+            document.getElementById('articlesList').innerHTML = '';
+            loadMoreArticles();
+        });
+    }
+    
+    // Search input (if exists)
+    const searchInput = document.getElementById('articleSearch');
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                articlesState.filters.search = e.target.value.trim() || null;
+                articlesState.offset = 0;
+                articlesState.articles = [];
+                articlesState.hasMore = true;
+                document.getElementById('articlesList').innerHTML = '';
+                loadMoreArticles();
+            }
+        });
+    }
+}
+
+// Update filter options based on loaded articles
+function updateArticleFilterOptions() {
+    const filterSelect = document.getElementById('articleFilter');
+    if (!filterSelect) return;
+    
+    const sources = [...new Set(articlesState.articles.map(a => a.source))];
+    const currentValue = filterSelect.value;
+    
+    filterSelect.innerHTML = '<option value="all">All Sources</option>' + 
+        sources.map(s => `<option value="${s}">${s}</option>`).join('');
+    
+    filterSelect.value = currentValue;
+}
+
+// Legacy render function for backward compatibility
+function renderArticles(articles) {
+    const container = document.getElementById('articlesList');
+    container.innerHTML = '';
+    renderArticlesAppend(articles);
+}
+
+function renderArticles(articles) {
+    const container = document.getElementById('articlesList');
+    
+    container.innerHTML = articles.map(article => `
+        <div class="article-item">
+            <div class="article-header">
+                <div class="article-title">
+                    <a href="${article.url}" target="_blank" rel="noopener">
+                        ${highlightTickersClickable(escapeHtml(article.title))}
+                    </a>
+                </div>
+                <span class="article-source">${article.source}</span>
+            </div>
+            <div class="article-meta">
+                <span>${timeAgo(article.scraped_at)}</span>
+                <div>
+                    ${article.mentions.map(m => `<span class="mention-badge ticker-clickable" onclick="event.stopPropagation(); openStockModal('${m}')">${m}</span>`).join('')}
                     ${article.sentiment !== null ? `
                         <span class="sentiment-badge ${getSentimentClass(article.sentiment)}">
                             ${article.sentiment > 0 ? '+' : ''}${article.sentiment.toFixed(2)}
@@ -2046,7 +2291,7 @@ function renderStockTicker(items) {
         const changeClass = isUp ? 'up' : isDown ? 'down' : 'flat';
         
         return `
-            <span class="stock-ticker-item">
+            <span class="stock-ticker-item" onclick="openStockModal('${symbol}')" style="cursor: pointer;" title="Click to view ${symbol} details">
                 <span class="stock-symbol">${symbol}</span>
                 <span class="stock-price">${price}</span>
                 <span class="stock-change ${changeClass}">
@@ -2088,7 +2333,8 @@ const KEYBOARD_SHORTCUTS = {
     'n': { action: 'news', description: 'Jump to News feed' },
     't': { action: 'ticker', description: 'Jump to Ticker' },
     's': { action: 'settings', description: 'Open Settings' },
-    '/': { action: 'search', description: 'Search' },
+    '/': { action: 'search', description: 'Search articles/companies' },
+    'k': { action: 'search', description: 'Search (with Ctrl)' },
     '?': { action: 'help', description: 'Show help' },
     'h': { action: 'help', description: 'Show help' },
 };
@@ -2208,13 +2454,8 @@ function highlightPanel(selector) {
 }
 
 function openSearch() {
-    // Focus article filter as search
-    const filter = document.getElementById('articleFilter');
-    if (filter) {
-        searchMode = true;
-        filter.focus();
-        showToast('Type to filter articles', 'info');
-    }
+    // Open the advanced search overlay
+    openSearchOverlay();
 }
 
 function setChartTimeframe(timeframe) {
@@ -2304,6 +2545,12 @@ function createHelpOverlay() {
             <div class="help-section">
                 <h3>NAVIGATION</h3>
                 ${shortcuts}
+            </div>
+            <div class="help-section">
+                <h3>SEARCH</h3>
+                <div class="help-row"><span class="help-key">/</span><span class="help-desc">Open Search</span></div>
+                <div class="help-row"><span class="help-key">^K</span><span class="help-desc">Open Search (Ctrl+K)</span></div>
+                <div class="help-row"><span class="help-key">ESC</span><span class="help-desc">Close Search</span></div>
             </div>
             <div class="help-section">
                 <h3>CHART TIMEFRAMES</h3>
@@ -2895,3 +3142,1401 @@ handleKeydown = function(e) {
 };
 
 
+
+
+// ============================================================================
+// Stock Detail Modal
+// ============================================================================
+
+let currentModalTicker = null;
+let stockChartInstance = null;
+let currentChartPeriod = '1mo';
+
+/**
+ * Open the stock detail modal for a given ticker
+ * @param {string} ticker - The stock ticker symbol
+ */
+async function openStockModal(ticker) {
+    if (!ticker) return;
+    
+    ticker = ticker.toUpperCase().trim();
+    currentModalTicker = ticker;
+    currentChartPeriod = '1mo';
+    
+    const modal = document.getElementById('stockDetailModal');
+    if (!modal) {
+        console.error('[StockModal] Modal element not found');
+        return;
+    }
+    
+    // Show modal with loading state
+    modal.style.display = 'flex';
+    showModalLoading();
+    
+    try {
+        // Fetch stock details
+        const response = await fetchWithTimeout(`/api/stock/${ticker}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            showModalError(data.error);
+            return;
+        }
+        
+        // Populate modal with data
+        populateModalData(data);
+        
+        // Fetch and render chart
+        await loadAndRenderChart(ticker, currentChartPeriod);
+        
+        // Fetch related news
+        await loadRelatedNews(ticker);
+        
+    } catch (error) {
+        console.error('[StockModal] Error loading stock data:', error);
+        showModalError('Failed to load stock data');
+    }
+}
+
+/**
+ * Close the stock detail modal
+ */
+function closeStockModal() {
+    const modal = document.getElementById('stockDetailModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Destroy chart instance
+    if (stockChartInstance) {
+        stockChartInstance.destroy();
+        stockChartInstance = null;
+    }
+    
+    currentModalTicker = null;
+}
+
+/**
+ * Show loading state in modal
+ */
+function showModalLoading() {
+    const content = document.querySelector('.stock-modal-content');
+    if (content) {
+        content.innerHTML = `
+            <div class="stock-modal-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Loading stock data...</span>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Show error state in modal
+ */
+function showModalError(message) {
+    const content = document.querySelector('.stock-modal-content');
+    if (content) {
+        content.innerHTML = `
+            <div class="stock-modal-error">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>${message}</span>
+                <button class="btn" onclick="closeStockModal()" style="margin-top: 16px;">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        `;
+    }
+}
+
+/**
+ * Populate modal with stock data
+ */
+function populateModalData(data) {
+    // Restore full modal structure if it was replaced
+    const modal = document.getElementById('stockDetailModal');
+    if (!modal) return;
+    
+    // Update header info
+    document.getElementById('modalSymbol').textContent = data.ticker;
+    document.getElementById('modalName').textContent = data.name || data.ticker;
+    
+    // Update price
+    const priceEl = document.getElementById('modalPrice');
+    priceEl.textContent = `$${data.price}`;
+    
+    // Update change
+    const changeEl = document.getElementById('modalChange');
+    const isUp = data.change >= 0;
+    const arrow = isUp ? '▲' : '▼';
+    changeEl.textContent = `${arrow} ${data.change >= 0 ? '+' : ''}${data.change} (${data.change_percent >= 0 ? '+' : ''}${data.change_percent}%)`;
+    changeEl.className = `stock-modal-change ${isUp ? 'up' : 'down'}`;
+    
+    // Update stats grid
+    document.getElementById('modalMarketCap').textContent = data.market_cap || 'N/A';
+    document.getElementById('modalPE').textContent = data.pe_ratio || 'N/A';
+    document.getElementById('modalVolume').textContent = formatVolume(data.volume);
+    document.getElementById('modalAvgVol').textContent = formatVolume(data.avg_volume);
+    document.getElementById('modal52High').textContent = data['52_week_high'] || 'N/A';
+    document.getElementById('modal52Low').textContent = data['52_week_low'] || 'N/A';
+    document.getElementById('modalOpen').textContent = data.open || 'N/A';
+    document.getElementById('modalPrevClose').textContent = data.previous_close || 'N/A';
+    
+    // Update company info
+    document.getElementById('modalSector').textContent = data.sector || 'N/A';
+    document.getElementById('modalIndustry').textContent = data.industry || 'N/A';
+    document.getElementById('modalEmployees').textContent = data.employees ? formatNumber(data.employees) : 'N/A';
+    
+    // EPS and Dividend Yield (may not be available for all stocks)
+    const epsRow = document.getElementById('modalEPSRow');
+    if (data.eps && data.eps !== 'N/A') {
+        epsRow.style.display = 'flex';
+        document.getElementById('modalEPS').textContent = `$${data.eps}`;
+    } else {
+        epsRow.style.display = 'none';
+    }
+    
+    const divYieldRow = document.getElementById('modalDivYieldRow');
+    if (data.dividend_yield && data.dividend_yield !== 0) {
+        divYieldRow.style.display = 'flex';
+        document.getElementById('modalDivYield').textContent = `${data.dividend_yield}%`;
+    } else {
+        divYieldRow.style.display = 'none';
+    }
+    
+    // Update description
+    document.getElementById('modalDescription').textContent = data.description || 'No description available.';
+    
+    // Update external links
+    const websiteLink = document.getElementById('modalWebsite');
+    if (data.website) {
+        websiteLink.href = data.website;
+        websiteLink.style.display = 'flex';
+    } else {
+        websiteLink.style.display = 'none';
+    }
+    
+    document.getElementById('modalYahooLink').href = `https://finance.yahoo.com/quote/${data.ticker}`;
+    document.getElementById('modalSECLink').href = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${data.ticker}&type=&dateb=&owner=include&count=40`;
+}
+
+/**
+ * Load and render stock chart
+ */
+async function loadAndRenderChart(ticker, period) {
+    try {
+        // Map period to appropriate interval
+        const intervalMap = {
+            '1d': '5m',
+            '5d': '30m',
+            '1mo': '1d',
+            '3mo': '1d',
+            '1y': '1wk',
+            '2y': '1mo',
+            '5y': '1mo',
+            'max': '3mo'
+        };
+        
+        const interval = intervalMap[period] || '1d';
+        
+        const response = await fetchWithTimeout(`/api/stock/${ticker}/chart?period=${period}&interval=${interval}`);
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('[StockModal] Chart error:', data.error);
+            return;
+        }
+        
+        renderStockChart(data.data, period);
+        
+    } catch (error) {
+        console.error('[StockModal] Error loading chart:', error);
+    }
+}
+
+/**
+ * Render the stock chart using Chart.js
+ */
+function renderStockChart(data, period) {
+    const ctx = document.getElementById('stockChart');
+    if (!ctx) return;
+    
+    // Destroy existing chart
+    if (stockChartInstance) {
+        stockChartInstance.destroy();
+    }
+    
+    if (!data || data.length === 0) {
+        return;
+    }
+    
+    // Format dates based on period
+    const labels = data.map(d => {
+        const date = new Date(d.date);
+        if (period === '1d') {
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        } else if (period === '5d' || period === '1mo') {
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        } else {
+            return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+        }
+    });
+    
+    const prices = data.map(d => d.close);
+    
+    // Determine color based on price trend
+    const startPrice = prices[0];
+    const endPrice = prices[prices.length - 1];
+    const isUp = endPrice >= startPrice;
+    const color = isUp ? '#00c851' : '#ff4444';
+    
+    stockChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Price',
+                data: prices,
+                borderColor: color,
+                backgroundColor: isUp ? 'rgba(0, 200, 81, 0.1)' : 'rgba(255, 68, 68, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                pointHoverBackgroundColor: color,
+                pointHoverBorderColor: '#fff',
+                pointHoverBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    titleColor: '#ff6600',
+                    bodyColor: '#e0e0e0',
+                    borderColor: '#333',
+                    borderWidth: 1,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return `$${context.parsed.y.toFixed(2)}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#888',
+                        font: {
+                            size: 10,
+                            family: "'Courier New', monospace"
+                        },
+                        maxTicksLimit: 6
+                    }
+                },
+                y: {
+                    display: true,
+                    position: 'right',
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)',
+                        drawBorder: false
+                    },
+                    ticks: {
+                        color: '#888',
+                        font: {
+                            size: 10,
+                            family: "'Courier New', monospace"
+                        },
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Change chart period
+ */
+async function changeChartPeriod(period) {
+    if (!currentModalTicker) return;
+    
+    currentChartPeriod = period;
+    
+    // Update button states
+    document.querySelectorAll('.chart-period-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.period === period);
+    });
+    
+    // Load new chart data
+    await loadAndRenderChart(currentModalTicker, period);
+}
+
+/**
+ * Load related news for the stock
+ */
+async function loadRelatedNews(ticker) {
+    const newsList = document.getElementById('modalNewsList');
+    if (!newsList) return;
+    
+    newsList.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Loading news...</div>';
+    
+    try {
+        const response = await fetchWithTimeout(`/api/stock/${ticker}/news`);
+        const data = await response.json();
+        
+        if (!data.articles || data.articles.length === 0) {
+            newsList.innerHTML = '<div class="empty-state">No recent news found</div>';
+            return;
+        }
+        
+        newsList.innerHTML = data.articles.map(article => {
+            const sentimentClass = article.sentiment_score > 0.2 ? 'positive' : 
+                                  article.sentiment_score < -0.2 ? 'negative' : 'neutral';
+            const sentimentLabel = sentimentClass.toUpperCase();
+            
+            return `
+                <div class="news-item">
+                    <a href="${article.url}" target="_blank" rel="noopener">${escapeHtml(article.title)}</a>
+                    <div class="news-meta">
+                        <span class="news-source">${article.source}</span>
+                        <span>${timeAgo(article.published_at)}</span>
+                        <span class="news-sentiment ${sentimentClass}">${sentimentLabel}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (error) {
+        console.error('[StockModal] Error loading news:', error);
+        newsList.innerHTML = '<div class="empty-state">Error loading news</div>';
+    }
+}
+
+/**
+ * Make ticker symbols clickable throughout the dashboard
+ * Call this function after rendering content with potential tickers
+ */
+function makeTickersClickable(container) {
+    if (!container) {
+        container = document.body;
+    }
+    
+    // Find text nodes that contain ticker patterns
+    const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+    
+    const textNodes = [];
+    let node;
+    while (node = walker.nextNode()) {
+        // Skip if parent is already a link, script, style, or has clickable class
+        const parent = node.parentElement;
+        if (parent && (
+            parent.tagName === 'A' ||
+            parent.tagName === 'SCRIPT' ||
+            parent.tagName === 'STYLE' ||
+            parent.classList.contains('ticker-clickable') ||
+            parent.closest('.stock-modal-content')
+        )) {
+            continue;
+        }
+        
+        if (/\$[A-Z]{1,5}\b/.test(node.textContent)) {
+            textNodes.push(node);
+        }
+    }
+    
+    // Replace ticker patterns with clickable spans
+    textNodes.forEach(node => {
+        const text = node.textContent;
+        const parts = text.split(/(\$[A-Z]{1,5}\b)/g);
+        
+        if (parts.length > 1) {
+            const fragment = document.createDocumentFragment();
+            parts.forEach(part => {
+                if (/^\$[A-Z]{1,5}$/.test(part)) {
+                    const ticker = part.substring(1);
+                    const span = document.createElement('span');
+                    span.className = 'ticker-clickable';
+                    span.textContent = part;
+                    span.title = `Click to view ${ticker} details`;
+                    span.onclick = (e) => {
+                        e.stopPropagation();
+                        openStockModal(ticker);
+                    };
+                    fragment.appendChild(span);
+                } else {
+                    fragment.appendChild(document.createTextNode(part));
+                }
+            });
+            node.parentNode.replaceChild(fragment, node);
+        }
+    });
+}
+
+/**
+ * Enhanced highlightTickers function that makes tickers clickable
+ */
+function highlightTickersClickable(text) {
+    if (!text) return '';
+    // Match $TICKER patterns and wrap in clickable spans
+    return text.replace(/\$([A-Za-z]{1,5})/g, '<span class="ticker-clickable" onclick="event.stopPropagation(); openStockModal(\'$1\')" title="Click to view $1">$$$1</span>');
+}
+
+// Override the existing highlightTickers function
+const originalHighlightTickers = highlightTickers;
+highlightTickers = highlightTickersClickable;
+
+// ============================================================================
+// Global exports for modal functions
+// ============================================================================
+
+window.openStockModal = openStockModal;
+window.closeStockModal = closeStockModal;
+window.changeChartPeriod = changeChartPeriod;
+
+// ============================================================================
+// Keyboard shortcuts for modal
+// ============================================================================
+
+document.addEventListener('keydown', (e) => {
+    // Close modal on Escape
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('stockDetailModal');
+        if (modal && modal.style.display !== 'none') {
+            closeStockModal();
+        }
+    }
+});
+
+// ============================================================================
+// Initialize clickable tickers on page load
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Make tickers clickable in existing content after a short delay
+    setTimeout(() => {
+        makeTickersClickable();
+    }, 1000);
+});
+
+
+/* ============================================================================
+   ADVANCED SEARCH - BLOOMBERG TERMINAL STYLE
+   ============================================================================ */
+
+// Search State
+let searchState = {
+    query: '',
+    type: 'all',
+    filters: {
+        dateRange: '',
+        dateFrom: '',
+        dateTo: '',
+        sources: [],
+        sentiment: '',
+        tickers: [],
+        minMentions: 1
+    },
+    results: {
+        articles: [],
+        companies: [],
+        alerts: []
+    },
+    pagination: {
+        offset: 0,
+        limit: 20,
+        total: 0
+    },
+    sort: 'relevance',
+    isLoading: false,
+    selectedIndex: -1
+};
+
+// Recent searches (stored in localStorage)
+let recentSearches = [];
+const MAX_RECENT_SEARCHES = 10;
+
+// Initialize search
+function initSearch() {
+    loadRecentSearches();
+    setupSearchEventListeners();
+    loadSourcesForFilter();
+}
+
+// Load recent searches from localStorage
+function loadRecentSearches() {
+    try {
+        const stored = localStorage.getItem('nickberg_recent_searches');
+        if (stored) {
+            recentSearches = JSON.parse(stored);
+            renderRecentSearches();
+        }
+    } catch (e) {
+        console.error('Error loading recent searches:', e);
+    }
+}
+
+// Save recent searches to localStorage
+function saveRecentSearches() {
+    try {
+        localStorage.setItem('nickberg_recent_searches', JSON.stringify(recentSearches));
+    } catch (e) {
+        console.error('Error saving recent searches:', e);
+    }
+}
+
+// Add to recent searches
+function addToRecentSearches(query, filters) {
+    if (!query && filters.tickers.length === 0) return;
+    
+    const entry = {
+        query: query,
+        type: searchState.type,
+        filters: { ...filters },
+        timestamp: Date.now()
+    };
+    
+    // Remove duplicates
+    recentSearches = recentSearches.filter(s => 
+        !(s.query === query && JSON.stringify(s.filters) === JSON.stringify(filters))
+    );
+    
+    // Add to front
+    recentSearches.unshift(entry);
+    
+    // Limit size
+    if (recentSearches.length > MAX_RECENT_SEARCHES) {
+        recentSearches = recentSearches.slice(0, MAX_RECENT_SEARCHES);
+    }
+    
+    saveRecentSearches();
+    renderRecentSearches();
+}
+
+// Render recent searches
+function renderRecentSearches() {
+    const container = document.getElementById('recentSearches');
+    if (!container) return;
+    
+    if (recentSearches.length === 0) {
+        container.innerHTML = '<span class="empty-text">No recent searches</span>';
+        return;
+    }
+    
+    container.innerHTML = recentSearches.map((search, index) => `
+        <div class="recent-search-item" data-index="${index}">
+            <span class="search-text">${search.query || '[Filters Only]'}</span>
+            <button class="delete-recent" data-index="${index}" title="Remove">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+    
+    // Add click handlers
+    container.querySelectorAll('.recent-search-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (e.target.closest('.delete-recent')) return;
+            const index = parseInt(item.dataset.index);
+            loadRecentSearch(index);
+        });
+    });
+    
+    container.querySelectorAll('.delete-recent').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const index = parseInt(btn.dataset.index);
+            removeRecentSearch(index);
+        });
+    });
+}
+
+// Load a recent search
+function loadRecentSearch(index) {
+    const search = recentSearches[index];
+    if (!search) return;
+    
+    searchState.query = search.query;
+    searchState.type = search.type;
+    searchState.filters = { ...search.filters };
+    
+    // Update UI
+    document.getElementById('searchInput').value = search.query;
+    document.getElementById('searchDateRange').value = search.filters.dateRange || '';
+    document.getElementById('dateFrom').value = search.filters.dateFrom || '';
+    document.getElementById('dateTo').value = search.filters.dateTo || '';
+    document.getElementById('searchSentiment').value = search.filters.sentiment || '';
+    document.getElementById('searchMinMentions').value = search.filters.minMentions || 1;
+    
+    // Update ticker tags
+    renderSearchTickerTags();
+    
+    // Update tab
+    switchSearchTab(search.type);
+    
+    // Perform search
+    performSearch();
+}
+
+// Remove a recent search
+function removeRecentSearch(index) {
+    recentSearches.splice(index, 1);
+    saveRecentSearches();
+    renderRecentSearches();
+}
+
+// Setup event listeners
+function setupSearchEventListeners() {
+    // Search button click
+    const searchBtn = document.getElementById('searchBtn');
+    if (searchBtn) {
+        searchBtn.addEventListener('click', openSearchOverlay);
+    }
+    
+    // Close button
+    const closeBtn = document.getElementById('searchCloseBtn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeSearchOverlay);
+    }
+    
+    // Clear button
+    const clearBtn = document.getElementById('searchClearBtn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchInput').focus();
+        });
+    }
+    
+    // Search input
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce((e) => {
+            searchState.query = e.target.value;
+            if (e.target.value.length >= 2) {
+                fetchSuggestions(e.target.value);
+            } else {
+                hideSuggestions();
+            }
+        }, 150));
+        
+        searchInput.addEventListener('keydown', handleSearchInputKeydown);
+    }
+    
+    // Tab switching
+    document.querySelectorAll('.search-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            switchSearchTab(tab.dataset.tab);
+        });
+    });
+    
+    // Date range
+    const dateRange = document.getElementById('searchDateRange');
+    if (dateRange) {
+        dateRange.addEventListener('change', (e) => {
+            searchState.filters.dateRange = e.target.value;
+            const customRange = document.getElementById('customDateRange');
+            if (e.target.value === 'custom') {
+                customRange.style.display = 'flex';
+            } else {
+                customRange.style.display = 'none';
+                updateDateRangeFromPreset(e.target.value);
+            }
+            performSearch();
+        });
+    }
+    
+    // Custom date inputs
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    if (dateFrom && dateTo) {
+        dateFrom.addEventListener('change', (e) => {
+            searchState.filters.dateFrom = e.target.value;
+            performSearch();
+        });
+        dateTo.addEventListener('change', (e) => {
+            searchState.filters.dateTo = e.target.value;
+            performSearch();
+        });
+    }
+    
+    // Sentiment filter
+    const sentiment = document.getElementById('searchSentiment');
+    if (sentiment) {
+        sentiment.addEventListener('change', (e) => {
+            searchState.filters.sentiment = e.target.value;
+            performSearch();
+        });
+    }
+    
+    // Ticker input
+    const tickerInput = document.getElementById('searchTickerInput');
+    const addTickerBtn = document.getElementById('addSearchTickerBtn');
+    if (tickerInput && addTickerBtn) {
+        tickerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addSearchTicker(tickerInput.value);
+                tickerInput.value = '';
+            }
+        });
+        addTickerBtn.addEventListener('click', () => {
+            addSearchTicker(tickerInput.value);
+            tickerInput.value = '';
+        });
+    }
+    
+    // Min mentions
+    const minMentions = document.getElementById('searchMinMentions');
+    if (minMentions) {
+        minMentions.addEventListener('change', (e) => {
+            searchState.filters.minMentions = parseInt(e.target.value) || 1;
+            performSearch();
+        });
+    }
+    
+    // Sort
+    const sortSelect = document.getElementById('searchSort');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            searchState.sort = e.target.value;
+            performSearch();
+        });
+    }
+    
+    // Clear filters
+    const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+    if (clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', clearAllFilters);
+    }
+    
+    // Pagination
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    if (prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', () => changePage(-1));
+        nextBtn.addEventListener('click', () => changePage(1));
+    }
+    
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+K or Cmd+K to open search
+        if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+            e.preventDefault();
+            openSearchOverlay();
+        }
+        
+        // Escape to close search
+        if (e.key === 'Escape') {
+            const overlay = document.getElementById('searchOverlay');
+            if (overlay && overlay.classList.contains('active')) {
+                closeSearchOverlay();
+            }
+        }
+    });
+}
+
+// Update date range from preset
+function updateDateRangeFromPreset(preset) {
+    const now = new Date();
+    const dateTo = now.toISOString().split('T')[0];
+    let dateFrom = '';
+    
+    switch (preset) {
+        case 'today':
+            dateFrom = dateTo;
+            break;
+        case 'yesterday':
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            dateFrom = yesterday.toISOString().split('T')[0];
+            break;
+        case '7d':
+            const weekAgo = new Date(now);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            dateFrom = weekAgo.toISOString().split('T')[0];
+            break;
+        case '30d':
+            const monthAgo = new Date(now);
+            monthAgo.setDate(monthAgo.getDate() - 30);
+            dateFrom = monthAgo.toISOString().split('T')[0];
+            break;
+    }
+    
+    searchState.filters.dateFrom = dateFrom;
+    searchState.filters.dateTo = dateTo;
+    
+    document.getElementById('dateFrom').value = dateFrom;
+    document.getElementById('dateTo').value = dateTo;
+}
+
+// Add search ticker
+function addSearchTicker(ticker) {
+    ticker = ticker.toUpperCase().trim();
+    if (!ticker) return;
+    if (searchState.filters.tickers.includes(ticker)) return;
+    
+    searchState.filters.tickers.push(ticker);
+    renderSearchTickerTags();
+    performSearch();
+}
+
+// Remove search ticker
+function removeSearchTicker(ticker) {
+    searchState.filters.tickers = searchState.filters.tickers.filter(t => t !== ticker);
+    renderSearchTickerTags();
+    performSearch();
+}
+
+// Render ticker tags
+function renderSearchTickerTags() {
+    const container = document.getElementById('searchTickerTags');
+    if (!container) return;
+    
+    container.innerHTML = searchState.filters.tickers.map(ticker => `
+        <span class="ticker-tag">
+            ${ticker}
+            <button onclick="removeSearchTicker('${ticker}')" title="Remove">
+                <i class="fas fa-times"></i>
+            </button>
+        </span>
+    `).join('');
+}
+
+// Make function globally accessible
+window.removeSearchTicker = removeSearchTicker;
+
+// Load sources for filter
+async function loadSourcesForFilter() {
+    try {
+        const response = await fetchWithTimeout('/api/sources/all');
+        const sources = await response.json();
+        
+        const container = document.getElementById('searchSources');
+        if (!container) return;
+        
+        if (sources.length === 0) {
+            container.innerHTML = '<span class="empty-text">No sources</span>';
+            return;
+        }
+        
+        container.innerHTML = sources.map(source => `
+            <label class="filter-checkbox-item">
+                <input type="checkbox" value="${source.source}" onchange="toggleSourceFilter('${source.source}', this.checked)">
+                <span>${source.source} (${source.count})</span>
+            </label>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading sources:', error);
+    }
+}
+
+// Toggle source filter
+function toggleSourceFilter(source, checked) {
+    if (checked) {
+        if (!searchState.filters.sources.includes(source)) {
+            searchState.filters.sources.push(source);
+        }
+    } else {
+        searchState.filters.sources = searchState.filters.sources.filter(s => s !== source);
+    }
+    performSearch();
+}
+
+// Make function globally accessible
+window.toggleSourceFilter = toggleSourceFilter;
+
+// Clear all filters
+function clearAllFilters() {
+    searchState.filters = {
+        dateRange: '',
+        dateFrom: '',
+        dateTo: '',
+        sources: [],
+        sentiment: '',
+        tickers: [],
+        minMentions: 1
+    };
+    
+    // Reset UI
+    document.getElementById('searchDateRange').value = '';
+    document.getElementById('customDateRange').style.display = 'none';
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+    document.getElementById('searchSentiment').value = '';
+    document.getElementById('searchMinMentions').value = '1';
+    
+    // Uncheck all sources
+    document.querySelectorAll('#searchSources input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+    });
+    
+    renderSearchTickerTags();
+    performSearch();
+}
+
+// Open search overlay
+function openSearchOverlay() {
+    const overlay = document.getElementById('searchOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        
+        // Focus input
+        setTimeout(() => {
+            const input = document.getElementById('searchInput');
+            if (input) input.focus();
+        }, 100);
+        
+        // Load sources if not loaded
+        loadSourcesForFilter();
+    }
+}
+
+// Close search overlay
+function closeSearchOverlay() {
+    const overlay = document.getElementById('searchOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+        hideSuggestions();
+    }
+}
+
+// Switch search tab
+function switchSearchTab(tab) {
+    searchState.type = tab;
+    
+    // Update UI
+    document.querySelectorAll('.search-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    
+    performSearch();
+}
+
+// Fetch suggestions
+async function fetchSuggestions(query) {
+    try {
+        const response = await fetchWithTimeout(`/api/search/suggestions?q=${encodeURIComponent(query)}&limit=10`);
+        const data = await response.json();
+        renderSuggestions(data.suggestions);
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+    }
+}
+
+// Render suggestions
+function renderSuggestions(suggestions) {
+    let container = document.querySelector('.search-suggestions');
+    
+    if (!suggestions || suggestions.length === 0) {
+        if (container) container.remove();
+        return;
+    }
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'search-suggestions';
+        document.querySelector('.search-input-wrapper').appendChild(container);
+    }
+    
+    container.innerHTML = suggestions.map((s, index) => `
+        <div class="suggestion-item" data-index="${index}" data-value="${s.value}" data-type="${s.type}">
+            <span class="suggestion-type">${s.type}</span>
+            <span class="suggestion-value">${highlightMatch(s.value, searchState.query)}</span>
+        </div>
+    `).join('');
+    
+    // Add click handlers
+    container.querySelectorAll('.suggestion-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const value = item.dataset.value;
+            const type = item.dataset.type;
+            
+            if (type === 'ticker') {
+                addSearchTicker(value);
+            } else {
+                document.getElementById('searchInput').value = value;
+                searchState.query = value;
+                performSearch();
+            }
+            
+            hideSuggestions();
+        });
+    });
+}
+
+// Hide suggestions
+function hideSuggestions() {
+    const container = document.querySelector('.search-suggestions');
+    if (container) container.remove();
+}
+
+// Highlight match in suggestion
+function highlightMatch(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+    return text.replace(regex, '<mark>$1</mark>');
+}
+
+// Escape regex special chars
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Handle search input keydown
+function handleSearchInputKeydown(e) {
+    const suggestions = document.querySelectorAll('.suggestion-item');
+    const selected = document.querySelector('.suggestion-item.selected');
+    let selectedIndex = selected ? parseInt(selected.dataset.index) : -1;
+    
+    switch (e.key) {
+        case 'ArrowDown':
+            e.preventDefault();
+            if (suggestions.length > 0) {
+                selectedIndex = (selectedIndex + 1) % suggestions.length;
+                updateSuggestionSelection(suggestions, selectedIndex);
+            }
+            break;
+            
+        case 'ArrowUp':
+            e.preventDefault();
+            if (suggestions.length > 0) {
+                selectedIndex = selectedIndex <= 0 ? suggestions.length - 1 : selectedIndex - 1;
+                updateSuggestionSelection(suggestions, selectedIndex);
+            }
+            break;
+            
+        case 'Enter':
+            e.preventDefault();
+            if (selected) {
+                selected.click();
+            } else {
+                hideSuggestions();
+                performSearch();
+            }
+            break;
+            
+        case 'Escape':
+            hideSuggestions();
+            break;
+    }
+}
+
+// Update suggestion selection
+function updateSuggestionSelection(suggestions, index) {
+    suggestions.forEach((s, i) => {
+        s.classList.toggle('selected', i === index);
+    });
+}
+
+// Perform search
+let searchDebounceTimer = null;
+
+function performSearch() {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+        executeSearch();
+    }, 300);
+}
+
+// Execute search
+async function executeSearch() {
+    if (searchState.isLoading) return;
+    
+    const query = searchState.query;
+    const filters = searchState.filters;
+    
+    // Show loading
+    searchState.isLoading = true;
+    showSearchLoading();
+    
+    // Build URL
+    const params = new URLSearchParams();
+    if (query) params.append('q', query);
+    params.append('type', searchState.type);
+    params.append('limit', searchState.pagination.limit);
+    params.append('offset', searchState.pagination.offset);
+    params.append('sort', searchState.sort);
+    
+    if (filters.dateFrom) params.append('date_from', filters.dateFrom);
+    if (filters.dateTo) params.append('date_to', filters.dateTo);
+    if (filters.sentiment) params.append('sentiment', filters.sentiment);
+    if (filters.minMentions > 1) params.append('min_mentions', filters.minMentions);
+    
+    filters.sources.forEach(s => params.append('sources', s));
+    filters.tickers.forEach(t => params.append('tickers', t));
+    
+    try {
+        const response = await fetchWithTimeout(`/api/search?${params.toString()}`);
+        const data = await response.json();
+        
+        // Update state
+        searchState.results = {
+            articles: data.articles.items,
+            companies: data.companies.items,
+            alerts: data.alerts.items
+        };
+        
+        searchState.pagination.total = data.total;
+        
+        // Update UI
+        updateResultCounts(data);
+        renderSearchResults();
+        updateSearchStatus(`Found ${data.total} results`);
+        
+        // Add to recent searches
+        if (query || filters.tickers.length > 0) {
+            addToRecentSearches(query, filters);
+        }
+        
+    } catch (error) {
+        console.error('Search error:', error);
+        updateSearchStatus('Search failed');
+        showSearchError();
+    } finally {
+        searchState.isLoading = false;
+    }
+}
+
+// Show search loading
+function showSearchLoading() {
+    const container = document.getElementById('searchResultsList');
+    if (container) {
+        container.innerHTML = `
+            <div class="search-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Searching...</span>
+            </div>
+        `;
+    }
+    updateSearchStatus('Searching...');
+}
+
+// Update result counts
+function updateResultCounts(data) {
+    document.getElementById('countAll').textContent = data.total;
+    document.getElementById('countArticles').textContent = data.articles.total;
+    document.getElementById('countCompanies').textContent = data.companies.total;
+    document.getElementById('countAlerts').textContent = data.alerts.total;
+}
+
+// Render search results
+function renderSearchResults() {
+    const container = document.getElementById('searchResultsList');
+    if (!container) return;
+    
+    const type = searchState.type;
+    let results = [];
+    
+    if (type === 'all') {
+        // Combine and interleave results
+        const maxItems = 5;
+        results = [
+            ...searchState.results.articles.slice(0, maxItems).map(r => ({ ...r, resultType: 'article' })),
+            ...searchState.results.companies.slice(0, maxItems).map(r => ({ ...r, resultType: 'company' })),
+            ...searchState.results.alerts.slice(0, maxItems).map(r => ({ ...r, resultType: 'alert' }))
+        ];
+    } else if (type === 'articles') {
+        results = searchState.results.articles.map(r => ({ ...r, resultType: 'article' }));
+    } else if (type === 'companies') {
+        results = searchState.results.companies.map(r => ({ ...r, resultType: 'company' }));
+    } else if (type === 'alerts') {
+        results = searchState.results.alerts.map(r => ({ ...r, resultType: 'alert' }));
+    }
+    
+    // Sort results
+    if (searchState.sort === 'date_desc') {
+        results.sort((a, b) => new Date(b.scraped_at || b.last_mentioned || b.created_at) - new Date(a.scraped_at || a.last_mentioned || a.created_at));
+    } else if (searchState.sort === 'date_asc') {
+        results.sort((a, b) => new Date(a.scraped_at || a.last_mentioned || a.created_at) - new Date(b.scraped_at || b.last_mentioned || b.created_at));
+    } else if (searchState.sort === 'mentions') {
+        results.sort((a, b) => (b.mention_count || 0) - (a.mention_count || 0));
+    }
+    // relevance is default - keep as returned by API
+    
+    if (results.length === 0) {
+        container.innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-search"></i>
+                <p>No results found</p>
+            </div>
+        `;
+        updatePagination(0, 0);
+        return;
+    }
+    
+    container.innerHTML = results.map((result, index) => {
+        if (result.resultType === 'article') {
+            return renderArticleResult(result, index);
+        } else if (result.resultType === 'company') {
+            return renderCompanyResult(result, index);
+        } else if (result.resultType === 'alert') {
+            return renderAlertResult(result, index);
+        }
+    }).join('');
+    
+    // Update pagination
+    const total = type === 'all' ? searchState.pagination.total : 
+                  type === 'articles' ? document.getElementById('countArticles').textContent :
+                  type === 'companies' ? document.getElementById('countCompanies').textContent :
+                  document.getElementById('countAlerts').textContent;
+    updatePagination(parseInt(total), searchState.pagination.offset);
+}
+
+// Render article result
+function renderArticleResult(article, index) {
+    const sentiment = article.sentiment_score > 0.2 ? 'positive' : 
+                      article.sentiment_score < -0.2 ? 'negative' : 'neutral';
+    const sentimentLabel = sentiment.charAt(0).toUpperCase() + sentiment.slice(1);
+    
+    const highlight = article.highlight || {};
+    const title = highlight.title || article.title;
+    const snippet = highlight.snippet || (article.content ? article.content.substring(0, 200) + '...' : '');
+    
+    return `
+        <div class="result-item article-result" data-index="${index}" data-type="article" data-id="${article.id}">
+            <div class="result-header">
+                <div class="result-title">
+                    <a href="${article.url}" target="_blank" rel="noopener">${title}</a>
+                </div>
+                <span class="result-source">${article.source}</span>
+            </div>
+            <div class="result-snippet">${snippet}</div>
+            <div class="result-meta">
+                <span>${timeAgo(article.scraped_at)}</span>
+                <div class="result-tags">
+                    ${article.mentions.map(m => `<span class="result-tag">${m}</span>`).join('')}
+                    ${article.sentiment_score !== null ? `<span class="result-tag sentiment-${sentiment}">${sentimentLabel} ${article.sentiment_score > 0 ? '+' : ''}${article.sentiment_score.toFixed(2)}</span>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Render company result
+function renderCompanyResult(company, index) {
+    const recentArticles = company.recent_articles || [];
+    
+    return `
+        <div class="result-item company-result" data-index="${index}" data-type="company" data-ticker="${company.ticker}">
+            <div class="result-company">
+                <div class="company-info">
+                    <span class="company-ticker-display">${company.ticker}</span>
+                    <span class="company-name-display">${company.name}</span>
+                </div>
+                <div class="company-stats">
+                    <div class="company-mention-count">${company.mention_count}</div>
+                    <div class="company-stat-label">Mentions</div>
+                </div>
+            </div>
+            ${recentArticles.length > 0 ? `
+                <div class="company-recent-articles">
+                    ${recentArticles.map(a => `
+                        <div class="recent-article">
+                            <span class="recent-article-title" title="${a.title}">${a.title}</span>
+                            <span class="recent-article-source">${a.source}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+// Render alert result
+function renderAlertResult(alert, index) {
+    return `
+        <div class="result-item alert-result ${alert.severity}" data-index="${index}" data-type="alert" data-id="${alert.id}">
+            <div class="result-alert">
+                <div class="alert-header-row">
+                    <span class="alert-type-badge">${alert.type.replace(/_/g, ' ').toUpperCase()}</span>
+                    <span class="alert-severity-badge ${alert.severity}">${alert.severity}</span>
+                </div>
+                <div class="alert-message-text">${alert.highlight ? alert.highlight.title : alert.message}</div>
+                <div class="alert-details">
+                    <span><strong>${alert.ticker}</strong> - ${alert.company}</span>
+                    <span>${timeAgo(alert.created_at)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Update pagination
+function updatePagination(total, offset) {
+    const pagination = document.getElementById('searchPagination');
+    const prevBtn = document.getElementById('prevPageBtn');
+    const nextBtn = document.getElementById('nextPageBtn');
+    const pageInfo = document.getElementById('pageInfo');
+    
+    if (total <= searchState.pagination.limit) {
+        pagination.style.display = 'none';
+        return;
+    }
+    
+    pagination.style.display = 'flex';
+    const currentPage = Math.floor(offset / searchState.pagination.limit) + 1;
+    const totalPages = Math.ceil(total / searchState.pagination.limit);
+    
+    prevBtn.disabled = currentPage <= 1;
+    nextBtn.disabled = currentPage >= totalPages;
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+}
+
+// Change page
+function changePage(direction) {
+    const newOffset = searchState.pagination.offset + (direction * searchState.pagination.limit);
+    if (newOffset < 0) return;
+    
+    searchState.pagination.offset = newOffset;
+    executeSearch();
+}
+
+// Update search status
+function updateSearchStatus(text) {
+    const status = document.getElementById('searchStatus');
+    if (status) status.textContent = text;
+}
+
+// Show search error
+function showSearchError() {
+    const container = document.getElementById('searchResultsList');
+    if (container) {
+        container.innerHTML = `
+            <div class="no-results">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Search failed. Please try again.</p>
+            </div>
+        `;
+    }
+}
+
+// Initialize search on DOM ready
+document.addEventListener('DOMContentLoaded', initSearch);
+
+// Make functions globally accessible
+window.openSearchOverlay = openSearchOverlay;
+window.closeSearchOverlay = closeSearchOverlay;

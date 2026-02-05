@@ -52,6 +52,10 @@
                 <span>Press <kbd>?</kbd> for shortcuts</span>
             </div>
             <div class="header-actions">
+                <button id="searchBtn" class="btn search-btn" title="Search (Ctrl+K)">
+                    <i class="fas fa-search"></i>
+                    <span class="search-shortcut">Ctrl+K</span>
+                </button>
                 <button id="refreshBtn" class="btn">
                     <i class="fas fa-sync-alt"></i> REFRESH
                 </button>
@@ -466,8 +470,287 @@
         </div>
     </div>
 
+    <!-- Stock Detail Modal -->
+    <div id="stockDetailModal" class="stock-detail-modal" style="display: none;">
+        <div class="stock-modal-overlay" onclick="closeStockModal()"></div>
+        <div class="stock-modal-content">
+            <div class="stock-modal-header">
+                <div class="stock-modal-title">
+                    <span class="stock-modal-symbol" id="modalSymbol">AAPL</span>
+                    <span class="stock-modal-name" id="modalName">Apple Inc.</span>
+                </div>
+                <div class="stock-modal-price">
+                    <span class="stock-modal-price-value" id="modalPrice">$185.42</span>
+                    <span class="stock-modal-change" id="modalChange">▲ +2.35 (+1.28%)</span>
+                </div>
+                <button class="stock-modal-close" onclick="closeStockModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Quick Stats Grid -->
+            <div class="stock-modal-stats">
+                <div class="stat-box">
+                    <span class="stat-box-label">Market Cap</span>
+                    <span class="stat-box-value" id="modalMarketCap">2.8T</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">P/E Ratio</span>
+                    <span class="stat-box-value" id="modalPE">28.5</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">Volume</span>
+                    <span class="stat-box-value" id="modalVolume">52.4M</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">Avg Volume</span>
+                    <span class="stat-box-value" id="modalAvgVol">48.0M</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">52W High</span>
+                    <span class="stat-box-value" id="modal52High">198.23</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">52W Low</span>
+                    <span class="stat-box-value" id="modal52Low">142.50</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">Open</span>
+                    <span class="stat-box-value" id="modalOpen">183.80</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-box-label">Prev Close</span>
+                    <span class="stat-box-value" id="modalPrevClose">183.07</span>
+                </div>
+            </div>
+            
+            <!-- Chart Section -->
+            <div class="stock-modal-chart-section">
+                <div class="chart-controls">
+                    <button class="chart-period-btn active" data-period="1d" onclick="changeChartPeriod('1d')">1D</button>
+                    <button class="chart-period-btn" data-period="5d" onclick="changeChartPeriod('5d')">1W</button>
+                    <button class="chart-period-btn" data-period="1mo" onclick="changeChartPeriod('1mo')">1M</button>
+                    <button class="chart-period-btn" data-period="3mo" onclick="changeChartPeriod('3mo')">3M</button>
+                    <button class="chart-period-btn" data-period="1y" onclick="changeChartPeriod('1y')">1Y</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="stockChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Company Info -->
+            <div class="stock-modal-info">
+                <div class="info-row">
+                    <span class="info-label">Sector:</span>
+                    <span class="info-value" id="modalSector">Technology</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Industry:</span>
+                    <span class="info-value" id="modalIndustry">Consumer Electronics</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Employees:</span>
+                    <span class="info-value" id="modalEmployees">161,000</span>
+                </div>
+                <div class="info-row" id="modalEPSRow">
+                    <span class="info-label">EPS:</span>
+                    <span class="info-value" id="modalEPS">$6.50</span>
+                </div>
+                <div class="info-row" id="modalDivYieldRow">
+                    <span class="info-label">Dividend Yield:</span>
+                    <span class="info-value" id="modalDivYield">0.55%</span>
+                </div>
+            </div>
+            
+            <!-- Description -->
+            <div class="stock-modal-description">
+                <p id="modalDescription">Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide.</p>
+            </div>
+            
+            <!-- Related News -->
+            <div class="stock-modal-news">
+                <h3><i class="fas fa-newspaper"></i> Related News</h3>
+                <div id="modalNewsList" class="news-list">
+                    <!-- News items populated dynamically -->
+                </div>
+            </div>
+            
+            <!-- External Links -->
+            <div class="stock-modal-links">
+                <a id="modalWebsite" href="#" target="_blank" rel="noopener" class="stock-link">
+                    <i class="fas fa-globe"></i> Website
+                </a>
+                <a id="modalYahooLink" href="#" target="_blank" rel="noopener" class="stock-link">
+                    <i class="fab fa-yahoo"></i> Yahoo Finance
+                </a>
+                <a id="modalSECLink" href="#" target="_blank" rel="noopener" class="stock-link">
+                    <i class="fas fa-file-alt"></i> SEC Filings
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Search Overlay -->
+    <div id="searchOverlay" class="search-overlay">
+        <div class="search-container">
+            <!-- Search Header -->
+            <div class="search-header">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="searchInput" class="search-input" placeholder="Search articles, companies, alerts..." autocomplete="off">
+                    <button id="searchClearBtn" class="search-clear" title="Clear">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <kbd class="search-kbd">ESC</kbd>
+                </div>
+                <button id="searchCloseBtn" class="search-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Search Content -->
+            <div class="search-content">
+                <!-- Filters Sidebar -->
+                <div class="search-filters">
+                    <div class="filter-section">
+                        <h4><i class="fas fa-filter"></i> FILTERS</h4>
+                        
+                        <!-- Date Range -->
+                        <div class="filter-group">
+                            <label class="filter-label">DATE RANGE</label>
+                            <select id="searchDateRange" class="filter-select">
+                                <option value="">All Time</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                            <div id="customDateRange" class="custom-date-range" style="display: none;">
+                                <input type="date" id="dateFrom" class="date-input">
+                                <span>to</span>
+                                <input type="date" id="dateTo" class="date-input">
+                            </div>
+                        </div>
+
+                        <!-- Sources -->
+                        <div class="filter-group">
+                            <label class="filter-label">SOURCES</label>
+                            <div id="searchSources" class="filter-checkboxes">
+                                <div class="loading-small">Loading sources...</div>
+                            </div>
+                        </div>
+
+                        <!-- Sentiment -->
+                        <div class="filter-group">
+                            <label class="filter-label">SENTIMENT</label>
+                            <select id="searchSentiment" class="filter-select">
+                                <option value="">All</option>
+                                <option value="positive">Positive</option>
+                                <option value="negative">Negative</option>
+                                <option value="neutral">Neutral</option>
+                            </select>
+                        </div>
+
+                        <!-- Tickers -->
+                        <div class="filter-group">
+                            <label class="filter-label">TICKERS</label>
+                            <div class="ticker-tag-input">
+                                <input type="text" id="searchTickerInput" placeholder="Add ticker...">
+                                <button id="addSearchTickerBtn"><i class="fas fa-plus"></i></button>
+                            </div>
+                            <div id="searchTickerTags" class="ticker-tags"></div>
+                        </div>
+
+                        <!-- Min Mentions (for companies) -->
+                        <div class="filter-group">
+                            <label class="filter-label">MIN MENTIONS</label>
+                            <input type="number" id="searchMinMentions" class="number-input" min="1" value="1">
+                        </div>
+
+                        <button id="clearFiltersBtn" class="clear-filters-btn">
+                            <i class="fas fa-undo"></i> Clear Filters
+                        </button>
+                    </div>
+
+                    <!-- Recent Searches -->
+                    <div class="filter-section recent-searches-section">
+                        <h4><i class="fas fa-history"></i> RECENT</h4>
+                        <div id="recentSearches" class="recent-searches-list">
+                            <span class="empty-text">No recent searches</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Area -->
+                <div class="search-results-area">
+                    <!-- Tab Navigation -->
+                    <div class="search-tabs">
+                        <button class="search-tab active" data-tab="all">
+                            <i class="fas fa-th-large"></i> ALL
+                            <span id="countAll" class="result-count">0</span>
+                        </button>
+                        <button class="search-tab" data-tab="articles">
+                            <i class="fas fa-newspaper"></i> ARTICLES
+                            <span id="countArticles" class="result-count">0</span>
+                        </button>
+                        <button class="search-tab" data-tab="companies">
+                            <i class="fas fa-building"></i> COMPANIES
+                            <span id="countCompanies" class="result-count">0</span>
+                        </button>
+                        <button class="search-tab" data-tab="alerts">
+                            <i class="fas fa-bell"></i> ALERTS
+                            <span id="countAlerts" class="result-count">0</span>
+                        </button>
+                        
+                        <div class="search-sort">
+                            <select id="searchSort" class="sort-select">
+                                <option value="relevance">Relevance</option>
+                                <option value="date_desc">Date (Newest)</option>
+                                <option value="date_asc">Date (Oldest)</option>
+                                <option value="mentions">Mentions</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Results Content -->
+                    <div class="search-results-content">
+                        <div id="searchResultsList" class="search-results-list">
+                            <div class="search-placeholder">
+                                <i class="fas fa-search"></i>
+                                <p>Start typing to search...</p>
+                                <span class="search-hint">Use filters to narrow results</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Search Pagination -->
+                    <div id="searchPagination" class="search-pagination" style="display: none;">
+                        <button id="prevPageBtn" class="page-btn" disabled>
+                            <i class="fas fa-chevron-left"></i> Previous
+                        </button>
+                        <span id="pageInfo" class="page-info">Page 1 of 1</span>
+                        <button id="nextPageBtn" class="page-btn" disabled>
+                            Next <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Footer -->
+            <div class="search-footer">
+                <div class="search-status">
+                    <span id="searchStatus">Ready</span>
+                </div>
+                <div class="search-shortcuts">
+                    <kbd>↑↓</kbd> Navigate <kbd>Enter</kbd> Open <kbd>Esc</kbd> Close
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Chart.js for charts (optional) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
