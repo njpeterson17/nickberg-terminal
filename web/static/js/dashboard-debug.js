@@ -1,5 +1,6 @@
 /**
- * Nickberg Terminal - Dashboard JavaScript
+ * Nickberg Terminal - Dashboard JavaScript (DEBUG VERSION)
+ * This file adds console.log tracing to diagnose the Economic Calendar issue
  */
 
 // Check if Chart.js is available
@@ -32,6 +33,8 @@ let saveDebounceTimer = null;
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[DEBUG] DOMContentLoaded fired');
+    
     // Hide any chart elements (replaced with ticker)
     hideChartElements();
     
@@ -132,23 +135,21 @@ function debounce(func, wait) {
 }
 
 async function initDashboard() {
+    console.log('[DEBUG] initDashboard called');
     await loadAllData();
     initBlueskyFeed();
-    // Delay economic calendar init to ensure DOM is ready
-    setTimeout(initEconomicCalendar, 100);
+    console.log('[DEBUG] About to call initEconomicCalendar from initDashboard');
+    initEconomicCalendar();
 }
 
 // Bluesky Financial Accounts to follow
 const BLUESKY_FINANCIAL_ACCOUNTS = [
-    // Options & Flow
     { handle: 'unusualwhales.bsky.social', name: 'Unusual Whales', display: 'Unusual Whales' },
     { handle: 'spotgamma.bsky.social', name: 'SpotGamma', display: 'SpotGamma' },
     { handle: 'carterbraxton.bsky.social', name: 'Carter Braxton', display: 'Carter Braxton' },
     { handle: 'jarvisflow.bsky.social', name: 'JarvisFlow', display: 'JarvisFlow' },
     { handle: 'darkpoolmarkets.bsky.social', name: 'Dark Pool', display: 'Dark Pool' },
     { handle: 'chriswhittall.bsky.social', name: 'Chris Whittall', display: 'Chris Whittall' },
-    
-    // Macro & Markets
     { handle: 'strazza.bsky.social', name: 'Strazza', display: 'Strazza' },
     { handle: 'carnage4life.bsky.social', name: 'Carnage4Life', display: 'Carnage4Life' },
     { handle: 'truflation.bsky.social', name: 'Truflation', display: 'Truflation' },
@@ -158,8 +159,6 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     { handle: 'claudia-sahm.bsky.social', name: 'Claudia Sahm', display: 'Claudia Sahm' },
     { handle: 'josephpolitano.bsky.social', name: 'Joey Politano', display: 'Joey Politano' },
     { handle: 'darioperkins.bsky.social', name: 'Dario Perkins', display: 'Dario Perkins' },
-    
-    // News & Media
     { handle: 'benzinga.bsky.social', name: 'Benzinga', display: 'Benzinga' },
     { handle: 'marketwatch.bsky.social', name: 'MarketWatch', display: 'MarketWatch' },
     { handle: 'morningbrew.bsky.social', name: 'Morning Brew', display: 'Morning Brew' },
@@ -170,33 +169,25 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     { handle: 'financialtimes.com', name: 'Financial Times', display: 'FT' },
     { handle: 'cnbc.com', name: 'CNBC', display: 'CNBC' },
     { handle: 'wsj.com', name: 'WSJ', display: 'WSJ' },
-    
-    // Trading & Technical Analysis
     { handle: 'stocktwits.bsky.social', name: 'StockTwits', display: 'StockTwits' },
     { handle: 'markminervini.bsky.social', name: 'Mark Minervini', display: 'Mark Minervini' },
     { handle: 'pelositracker.bsky.social', name: 'Pelosi Tracker', display: 'Pelosi Tracker' },
     { handle: '0dte.bsky.social', name: '0DTE', display: '0DTE' },
     { handle: 'cboe.bsky.social', name: 'CBOE', display: 'CBOE' },
-
     { handle: 'brianferoldi.bsky.social', name: 'Brian Feroldi', display: 'Brian Feroldi' },
-
     { handle: 'mindmathmoney.com', name: 'Mind Math Money', display: 'MMM' },
     { handle: 'dkellercmt.bsky.social', name: 'David Keller', display: 'David Keller' },
     { handle: 'martialchartsfx.bsky.social', name: 'Martial Charts', display: 'Martial Charts' },
     { handle: 'intradaytrader.bsky.social', name: 'Intraday Trader', display: 'Intraday' },
     { handle: 'jamtrades.bsky.social', name: 'jam trades', display: 'jam trades' },
-    
-    // Sentiment & Data
     { handle: 'sentiment.bsky.social', name: 'Sentiment', display: 'Sentiment' },
     { handle: 'fintwit.bsky.social', name: 'FinTwit', display: 'FinTwit' },
-
+    { handle: 'retailmind.bsky.social', name: 'Retail Mind', display: 'Retail Mind' },
     { handle: 'finchat.bsky.social', name: 'FinChat', display: 'FinChat' },
     { handle: 'sentimentrader.bsky.social', name: 'SentimenTrader', display: 'SentimenTrader' },
     { handle: 'topdowncharts.bsky.social', name: 'Topdown Charts', display: 'Topdown Charts' },
     { handle: 'marketsentiment.bsky.social', name: 'Market Sentiment', display: 'Mkt Sentiment' },
     { handle: 'hmeisler.bsky.social', name: 'Helene Meisler', display: 'Helene Meisler' },
-    
-    // Crypto & Web3
     { handle: 'sassal0x.bsky.social', name: 'sassal.eth', display: 'sassal' },
     { handle: 'dcinvestor.bsky.social', name: 'DCinvestor', display: 'DCinvestor' },
     { handle: 'cryptocobain.bsky.social', name: 'Crypto Cobain', display: 'Cobain' },
@@ -252,8 +243,8 @@ async function loadBlueskyFeed(container) {
         // Sort by date (newest first)
         allPosts.sort((a, b) => new Date(b.indexedAt) - new Date(a.indexedAt));
         
-        // Take top 120 posts
-        const topPosts = allPosts.slice(0, 120);
+        // Take top 30 posts
+        const topPosts = allPosts.slice(0, 30);
         
         // Update cache
         blueskyCache.posts = topPosts;
@@ -324,7 +315,7 @@ function getBlueskyPostUrl(uri, handle) {
     return `https://bsky.app/profile/${handle}`;
 }
 
-// Render Bluesky posts to the container - vertically scrolling
+// Render Bluesky posts to the container - compact clickable version
 function renderBlueskyPosts(container, posts) {
     if (!posts || posts.length === 0) {
         container.innerHTML = `
@@ -336,8 +327,7 @@ function renderBlueskyPosts(container, posts) {
         return;
     }
     
-    // Build posts HTML
-    const postsHtml = posts.map(post => {
+    const html = posts.map(post => {
         const timeAgo = formatTimeAgo(new Date(post.indexedAt));
         const avatarUrl = post.author.avatar || '';
         const initial = (post.author.displayName || post.author.handle).charAt(0).toUpperCase();
@@ -345,6 +335,17 @@ function renderBlueskyPosts(container, posts) {
         
         // Highlight stock tickers
         const highlightedText = highlightTickers(escapeHtml(post.text));
+        
+        // Build repost indicator (compact)
+        let repostHtml = '';
+        if (post.isRepost && post.repostedBy) {
+            repostHtml = `
+                <div class="bluesky-repost-indicator">
+                    <i class="fas fa-retweet"></i>
+                    <span>${escapeHtml(post.repostedBy.displayName || post.repostedBy.handle)}</span>
+                </div>
+            `;
+        }
         
         // Compact engagement stats
         const engagementHtml = [];
@@ -354,6 +355,7 @@ function renderBlueskyPosts(container, posts) {
         return `
             <a href="${postUrl}" target="_blank" rel="noopener" class="bluesky-post-link">
                 <div class="bluesky-post" data-uri="${post.uri}">
+                    ${repostHtml}
                     <div class="bluesky-post-header">
                         <div class="bluesky-avatar">
                             ${avatarUrl ? `<img src="${avatarUrl}" alt="" loading="lazy">` : initial}
@@ -374,15 +376,7 @@ function renderBlueskyPosts(container, posts) {
         `;
     }).join('');
     
-    // Wrap in scrolling container with duplicated content for seamless loop
-    container.innerHTML = `
-        <div class="bluesky-scroll-container">
-            <div class="bluesky-scroll-content">
-                ${postsHtml}
-                ${postsHtml}
-            </div>
-        </div>
-    `;
+    container.innerHTML = html;
 }
 
 // Show error state
@@ -1097,34 +1091,6 @@ async function loadSentiment() {
 async function updateMainChart() {
     console.log('[Dashboard] Main chart disabled - using news ticker');
     return;
-    
-    // Old chart code disabled
-    if (typeof Chart === 'undefined') {
-        console.warn('Chart.js not loaded - skipping chart render');
-        const container = document.getElementById('mainChart');
-        if (container) {
-            container.parentElement.innerHTML = '<div class="chart-error">Chart unavailable</div>';
-        }
-        return;
-    }
-    
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    
-    if (mainChart) {
-        mainChart.destroy();
-    }
-    
-    if (currentChartType === 'mentions') {
-        const response = await fetchWithTimeout('/api/timeline?hours=24');
-        const data = await response.json();
-        renderMentionsChart(ctx, data);
-    } else if (currentChartType === 'sentiment') {
-        renderSentimentTrendChart(ctx);
-    } else if (currentChartType === 'sources') {
-        const response = await fetchWithTimeout('/api/sources');
-        const data = await response.json();
-        renderSourcesChart(ctx, data);
-    }
 }
 
 function renderMentionsChart(ctx, data) {
@@ -1749,10 +1715,6 @@ function markSettingsDirty() {
     if (saveBtn) {
         saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings *';
     }
-
-    // Debounced auto-save (optional - can be enabled)
-    // clearTimeout(saveDebounceTimer);
-    // saveDebounceTimer = setTimeout(saveAllSettings, 2000);
 }
 
 async function saveAllSettings() {
@@ -2369,7 +2331,6 @@ window.toggleHelpOverlay = toggleHelpOverlay;
 window.executeCommand = executeCommand;
 window.lookupStock = lookupStock;
 window.closeStockDetails = closeStockDetails;
-window.showEventDetails = showEventDetails;
 
 // Add ESC key to close stock details
 document.addEventListener('keydown', (e) => {
@@ -2380,7 +2341,7 @@ document.addEventListener('keydown', (e) => {
 
 
 // ============================================================================
-// Economic Calendar
+// Economic Calendar - DEBUG VERSION WITH CONSOLE.LOG
 // ============================================================================
 
 // Major US economic events - recurring schedule with approximate times
@@ -2453,14 +2414,10 @@ const MOCK_EVENT_HISTORY = {
 };
 
 // Initialize Economic Calendar
-function initEconomicCalendar(retryCount = 0) {
-    console.log('[EconCalendar] initEconomicCalendar() called, retry:', retryCount);
-    console.log('[EconCalendar] ECONOMIC_EVENTS_SCHEDULE length:', typeof ECONOMIC_EVENTS_SCHEDULE !== 'undefined' ? ECONOMIC_EVENTS_SCHEDULE.length : 'UNDEFINED!');
-    
-    // Wait a bit for DOM to be ready, then load
-    setTimeout(() => {
-        loadEconomicCalendar();
-    }, 500);
+function initEconomicCalendar() {
+    console.log('[DEBUG EconCalendar] initEconomicCalendar() called');
+    console.log('[DEBUG EconCalendar] ECONOMIC_EVENTS_SCHEDULE length:', ECONOMIC_EVENTS_SCHEDULE.length);
+    loadEconomicCalendar();
     
     // Refresh calendar every 5 minutes
     setInterval(loadEconomicCalendar, 300000);
@@ -2468,54 +2425,53 @@ function initEconomicCalendar(retryCount = 0) {
 
 // Load and display economic calendar
 async function loadEconomicCalendar() {
-    console.log('[EconCalendar] loadEconomicCalendar() called');
-    
-    // Try economicCalendar first (in Market Monitor), then economicCalendarStrip (old location)
-    let container = document.getElementById('economicCalendar') || document.getElementById('economicCalendarStrip');
-    console.log('[EconCalendar] Container found:', !!container);
+    console.log('[DEBUG EconCalendar] loadEconomicCalendar() called');
+    const container = document.getElementById('economicCalendarStrip');
+    console.log('[DEBUG EconCalendar] Container found:', !!container);
     
     if (!container) {
-        console.error('[EconCalendar] ERROR: Container not found!');
+        console.error('[DEBUG EconCalendar] ERROR: Container #economicCalendarStrip NOT FOUND!');
         return;
     }
+    
+    console.log('[DEBUG EconCalendar] Container innerHTML before:', container.innerHTML.substring(0, 100));
     
     try {
         // Try to fetch from API first
         let events = [];
         try {
-            console.log('[EconCalendar] Trying API...');
+            console.log('[DEBUG EconCalendar] Trying to fetch from API...');
             const response = await fetchWithTimeout('/api/economic-calendar', {}, 5000);
             const data = await response.json();
+            console.log('[DEBUG EconCalendar] API response:', data);
             // API returns { events: [...] } - extract the array
             events = data.events || [];
-            console.log('[EconCalendar] Got', events.length, 'events from API');
+            console.log('[DEBUG EconCalendar] Events from API:', events.length);
         } catch (apiError) {
-            console.log('[EconCalendar] API unavailable, using generated data:', apiError.message);
+            console.log('[DEBUG EconCalendar] API unavailable, using generated data. Error:', apiError.message);
             events = generateEconomicEvents();
-            console.log('[EconCalendar] Generated', events.length, 'events');
+            console.log('[DEBUG EconCalendar] Events from generateEconomicEvents():', events.length);
         }
         
+        console.log('[DEBUG EconCalendar] About to call renderEconomicCalendarStrip with', events.length, 'events');
         renderEconomicCalendarStrip(container, events);
+        console.log('[DEBUG EconCalendar] renderEconomicCalendarStrip completed');
     } catch (error) {
-        console.error('[EconCalendar] Error loading:', error);
+        console.error('[DEBUG EconCalendar] Error loading:', error);
         container.innerHTML = `<div class="econ-strip-empty">Unable to load calendar</div>`;
     }
 }
 
 // Generate realistic economic events for the next 7 days
 function generateEconomicEvents() {
-    console.log('[EconCalendar] generateEconomicEvents() called');
+    console.log('[DEBUG EconCalendar] generateEconomicEvents() called');
     const events = [];
     const now = new Date();
     const currentHour = now.getHours();
     
-    // Check if schedule is defined
-    if (typeof ECONOMIC_EVENTS_SCHEDULE === 'undefined') {
-        console.error('[EconCalendar] ERROR: ECONOMIC_EVENTS_SCHEDULE is undefined!');
-        return generateSampleEvents(); // Fallback
-    }
-    
-    console.log('[EconCalendar] Schedule has', ECONOMIC_EVENTS_SCHEDULE.length, 'templates');
+    console.log('[DEBUG EconCalendar] Current date:', now.toISOString());
+    console.log('[DEBUG EconCalendar] Current day of week:', now.getDay());
+    console.log('[DEBUG EconCalendar] Current day of month:', now.getDate());
     
     // Generate events for next 7 days
     for (let i = 0; i < 7; i++) {
@@ -2529,7 +2485,10 @@ function generateEconomicEvents() {
         const dateStr = `${year}-${month.toString().padStart(2, '0')}-${dayOfMonth.toString().padStart(2, '0')}`;
         
         // Skip weekends
-        if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            console.log(`[DEBUG EconCalendar] Skipping weekend day ${i}:`, dateStr);
+            continue;
+        }
         
         // Add scheduled events that match this date
         ECONOMIC_EVENTS_SCHEDULE.forEach(template => {
@@ -2538,11 +2497,13 @@ function generateEconomicEvents() {
             
             if (template.day !== undefined && template.day === dayOfWeek) {
                 // Weekly event (e.g., Jobless Claims on Thursday = 4)
+                console.log(`[DEBUG EconCalendar] Weekly match for ${template.name} on day ${dayOfWeek}`);
                 shouldInclude = true;
             } else if (template.dayOfMonth !== undefined) {
                 // Monthly event - use approximate date with some variance
                 const variance = Math.abs(template.dayOfMonth - dayOfMonth);
                 if (variance <= 2) {
+                    console.log(`[DEBUG EconCalendar] Monthly match for ${template.name}: target=${template.dayOfMonth}, actual=${dayOfMonth}, variance=${variance}`);
                     shouldInclude = true;
                 }
             }
@@ -2568,7 +2529,7 @@ function generateEconomicEvents() {
         });
     }
     
-    console.log('[EconCalendar] Generated', events.length, 'raw events');
+    console.log(`[DEBUG EconCalendar] Total events before sort:`, events.length);
     
     // Sort by date and time
     events.sort((a, b) => {
@@ -2577,57 +2538,9 @@ function generateEconomicEvents() {
         return dateA - dateB;
     });
     
-    return events.slice(0, 15); // Limit to 15 events
-}
-
-// Fallback: Generate sample events if main schedule fails
-function generateSampleEvents() {
-    console.log('[EconCalendar] generateSampleEvents() called - using fallback');
-    const events = [];
-    const now = new Date();
-    
-    const sampleEvents = [
-        { name: 'Fed Interest Rate Decision', impact: 'high', type: 'interest-rate' },
-        { name: 'Nonfarm Payrolls', impact: 'high', type: 'employment' },
-        { name: 'CPI (MoM)', impact: 'high', type: 'inflation' },
-        { name: 'Initial Jobless Claims', impact: 'medium', type: 'employment' },
-        { name: 'Retail Sales', impact: 'medium', type: 'economic' },
-        { name: 'ISM Manufacturing', impact: 'medium', type: 'economic' }
-    ];
-    
-    // Generate one event per day for next 5 days
-    for (let i = 0; i < 5; i++) {
-        const date = new Date(now);
-        date.setDate(date.getDate() + i);
-        
-        // Skip weekends
-        if (date.getDay() === 0 || date.getDay() === 6) continue;
-        
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-        
-        const template = sampleEvents[i % sampleEvents.length];
-        const hour = 8 + Math.floor(Math.random() * 8); // 8am-4pm
-        const time = `${hour.toString().padStart(2, '0')}:30`;
-        
-        events.push({
-            id: `${template.name}-${dateStr}`,
-            name: template.name,
-            country: 'US',
-            date: dateStr,
-            time: time,
-            impact: template.impact,
-            type: template.type,
-            previous: null,
-            forecast: null,
-            actual: null,
-            notes: null
-        });
-    }
-    
-    return events;
+    const result = events.slice(0, 15); // Limit to 15 events
+    console.log(`[DEBUG EconCalendar] Total events after slice:`, result.length);
+    return result;
 }
 
 // Get random market hours time (8:30 AM - 4:00 PM EST)
@@ -2661,127 +2574,56 @@ function getMockActual(eventName) {
     return actual.toFixed(1);
 }
 
-// Market impact data for major events
-const EVENT_IMPACT_DATA = {
-    'Nonfarm Payrolls': { avgMove: '±0.8%', description: 'Monthly employment report - major market mover' },
-    'Unemployment Rate': { avgMove: '±0.6%', description: 'Percentage of unemployed workers' },
-    'CPI (MoM)': { avgMove: '±1.2%', description: 'Consumer Price Index - key inflation gauge' },
-    'CPI (YoY)': { avgMove: '±1.2%', description: 'Annual inflation rate' },
-    'Core CPI': { avgMove: '±1.0%', description: 'CPI excluding food and energy' },
-    'PPI (MoM)': { avgMove: '±0.7%', description: 'Producer Price Index - wholesale inflation' },
-    'Fed Interest Rate Decision': { avgMove: '±1.5%', description: 'FOMC rate decision - major volatility expected' },
-    'FOMC Meeting': { avgMove: '±1.5%', description: 'Federal Reserve policy meeting' },
-    'GDP (QoQ)': { avgMove: '±0.8%', description: 'Quarterly economic growth rate' },
-    'Retail Sales': { avgMove: '±0.6%', description: 'Consumer spending indicator' },
-    'Initial Jobless Claims': { avgMove: '±0.4%', description: 'Weekly unemployment claims' },
-    'PCE Price Index': { avgMove: '±0.8%', description: 'Fed\'s preferred inflation measure' },
-    'Core PCE': { avgMove: '±0.9%', description: 'Core PCE - Fed inflation target' },
-    'ISM Manufacturing': { avgMove: '±0.7%', description: 'Manufacturing sector health' },
-    'ISM Services': { avgMove: '±0.6%', description: 'Services sector health' },
-    'Consumer Confidence': { avgMove: '±0.5%', description: 'Consumer sentiment indicator' }
-};
-
-// Get timezone abbreviation
-function getTimezoneAbbr() {
-    const date = new Date();
-    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    // Check if we're in Eastern Time
-    if (timeZone.includes('New_York') || timeZone.includes('Eastern')) {
-        const isDST = date.getTimezoneOffset() === 240; // EDT is UTC-4 (240 min)
-        return isDST ? 'EDT' : 'EST';
-    }
-    // Return generic offset if not Eastern
-    const offset = -date.getTimezoneOffset() / 60;
-    return offset >= 0 ? `UTC+${offset}` : `UTC${offset}`;
-}
-
-// Get date label (TODAY, TOMORROW, or day name)
-function getDateLabel(dateStr, todayStr) {
-    if (dateStr === todayStr) return 'TODAY';
-    
-    const today = new Date(todayStr);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    
-    if (dateStr === tomorrowStr) return 'TOMORROW';
-    
-    // Return day name for other dates
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-}
-
-// Render economic calendar with date grouping and details
+// Render economic calendar strip - simplified horizontal layout
 function renderEconomicCalendarStrip(container, events) {
-    console.log('[EconCalendar] renderEconomicCalendarStrip() called with', events ? events.length : 0, 'events');
+    console.log('[DEBUG EconCalendar] renderEconomicCalendarStrip() called with', events ? events.length : 0, 'events');
     
     if (!events || events.length === 0) {
+        console.log('[DEBUG EconCalendar] No events to render, showing empty message');
         container.innerHTML = `<div class="econ-strip-empty">No events scheduled</div>`;
         return;
     }
     
     const now = new Date();
+    // Use local date (not UTC) to match API date format
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const today = `${year}-${month}-${day}`;
-    const tzAbbr = getTimezoneAbbr();
     
-    // Filter to upcoming events, max 8
-    let upcomingEvents = events.filter(e => e.date >= today).slice(0, 8);
+    console.log('[DEBUG EconCalendar] Today is:', today);
+    console.log('[DEBUG EconCalendar] First few event dates:', events.slice(0, 3).map(e => e.date));
+    
+    // Only show upcoming events (today and future)
+    const upcomingEvents = events.filter(e => e.date >= today).slice(0, 6);
+    
+    console.log('[DEBUG EconCalendar] Upcoming events after filter:', upcomingEvents.length);
+    
     if (upcomingEvents.length === 0) {
-        upcomingEvents = events.slice(0, 8);
+        console.log('[DEBUG EconCalendar] No upcoming events, showing message');
+        container.innerHTML = `<div class="econ-strip-empty">No upcoming events</div>`;
+        return;
     }
     
-    // Group by date
-    let currentDateLabel = null;
-    
-    const html = upcomingEvents.map((event, index) => {
+    const html = upcomingEvents.map(event => {
         const isToday = event.date === today;
         const timeDisplay = formatTime12h(event.time);
-        const dateLabel = getDateLabel(event.date, today);
-        const showDateHeader = dateLabel !== currentDateLabel;
-        currentDateLabel = dateLabel;
         
+        // Impact indicator dot
         const impactDot = event.impact === 'high' ? '●' : event.impact === 'medium' ? '◐' : '○';
-        const impactData = EVENT_IMPACT_DATA[event.name] || { avgMove: '', description: 'Economic data release' };
         
-        const dateHeader = showDateHeader ? `<div class="econ-date-header">${dateLabel}</div>` : '';
-        
-        return dateHeader + `
-            <div class="econ-item ${event.impact}" data-event-index="${index}" onclick="showEventDetails(${index})">
-                <span class="econ-time">${timeDisplay} ${tzAbbr}</span>
-                <span class="econ-impact">${impactDot}</span>
-                <span class="econ-name">${event.name}</span>
-            </div>
-            <div id="event-details-${index}" class="econ-details-panel" style="display: none;">
-                <div class="econ-details-content">
-                    <div class="econ-details-desc">${impactData.description}</div>
-                    ${event.forecast ? `<div class="econ-details-forecast">Forecast: ${event.forecast}</div>` : ''}
-                    ${event.previous ? `<div class="econ-details-previous">Previous: ${event.previous}</div>` : ''}
-                </div>
+        return `
+            <div class="econ-strip-item ${event.impact}" title="${event.name} - ${timeDisplay}">
+                <span class="econ-strip-time">${isToday ? timeDisplay : 'Tomorrow'}</span>
+                <span class="econ-strip-impact">${impactDot}</span>
+                <span class="econ-strip-name">${event.name}</span>
             </div>
         `;
     }).join('');
     
+    console.log('[DEBUG EconCalendar] Setting container HTML, length:', html.length);
     container.innerHTML = html;
-}
-
-// Show/hide event details
-function showEventDetails(index) {
-    const detailsPanel = document.getElementById(`event-details-${index}`);
-    if (!detailsPanel) return;
-    
-    // Hide all other detail panels
-    document.querySelectorAll('.econ-details-panel').forEach(panel => {
-        if (panel.id !== `event-details-${index}`) {
-            panel.style.display = 'none';
-        }
-    });
-    
-    // Toggle this panel
-    const isVisible = detailsPanel.style.display === 'block';
-    detailsPanel.style.display = isVisible ? 'none' : 'block';
+    console.log('[DEBUG EconCalendar] Container HTML set successfully');
 }
 
 // Format time to 12-hour format
@@ -2894,4 +2736,9 @@ handleKeydown = function(e) {
     }
 };
 
-
+// Initialize economic calendar on load
+console.log('[DEBUG EconCalendar] Setting up DOMContentLoaded listener for initEconomicCalendar');
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('[DEBUG EconCalendar] Second DOMContentLoaded fired - calling initEconomicCalendar');
+    initEconomicCalendar();
+});

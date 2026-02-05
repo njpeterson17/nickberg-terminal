@@ -1284,6 +1284,168 @@ def api_run_bot():
         return jsonify({'success': False, 'error': str(e)})
 
 
+@app.route('/api/economic-calendar')
+@require_api_key
+def api_economic_calendar():
+    """
+    Get upcoming economic events calendar.
+    
+    Returns economic events for the next 7 days including:
+    - Employment reports (Nonfarm Payrolls, Jobless Claims, etc.)
+    - Inflation data (CPI, PPI, PCE)
+    - Central bank meetings (FOMC, Fed decisions)
+    - Economic indicators (GDP, Retail Sales, ISM, etc.)
+    
+    Query params:
+        - days: Number of days to look ahead (default 7, max 30)
+    """
+    from datetime import datetime, timedelta
+    import random
+    
+    days = request.args.get('days', 7, type=int)
+    days = min(max(days, 1), 30)  # Clamp between 1 and 30
+    
+    # Major US economic events with typical schedule
+    event_templates = [
+        # Weekly events
+        {'name': 'Initial Jobless Claims', 'country': 'US', 'impact': 'medium', 'type': 'employment', 
+         'time': '08:30', 'day': 3},  # Thursday
+        
+        # Monthly events
+        {'name': 'Nonfarm Payrolls', 'country': 'US', 'impact': 'high', 'type': 'employment', 
+         'time': '08:30', 'day_of_month': 1},
+        {'name': 'Unemployment Rate', 'country': 'US', 'impact': 'high', 'type': 'employment', 
+         'time': '08:30', 'day_of_month': 1},
+        {'name': 'CPI (MoM)', 'country': 'US', 'impact': 'high', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 10},
+        {'name': 'CPI (YoY)', 'country': 'US', 'impact': 'high', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 10},
+        {'name': 'Core CPI', 'country': 'US', 'impact': 'high', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 10},
+        {'name': 'PPI (MoM)', 'country': 'US', 'impact': 'medium', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 12},
+        {'name': 'Retail Sales', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '08:30', 'day_of_month': 15},
+        {'name': 'Industrial Production', 'country': 'US', 'impact': 'low', 'type': 'economic', 
+         'time': '09:15', 'day_of_month': 15},
+        {'name': 'Housing Starts', 'country': 'US', 'impact': 'medium', 'type': 'housing', 
+         'time': '08:30', 'day_of_month': 17},
+        {'name': 'Building Permits', 'country': 'US', 'impact': 'medium', 'type': 'housing', 
+         'time': '08:30', 'day_of_month': 17},
+        {'name': 'Fed Interest Rate Decision', 'country': 'US', 'impact': 'high', 'type': 'interest-rate', 
+         'time': '14:00', 'day_of_month': 18, 'notes': '8x per year'},
+        {'name': 'FOMC Statement', 'country': 'US', 'impact': 'high', 'type': 'interest-rate', 
+         'time': '14:00', 'day_of_month': 18, 'notes': '8x per year'},
+        {'name': 'GDP (QoQ)', 'country': 'US', 'impact': 'high', 'type': 'gdp', 
+         'time': '08:30', 'day_of_month': 25, 'notes': 'Quarterly'},
+        {'name': 'Trade Balance', 'country': 'US', 'impact': 'low', 'type': 'economic', 
+         'time': '08:30', 'day_of_month': 5},
+        {'name': 'Consumer Confidence', 'country': 'US', 'impact': 'medium', 'type': 'sentiment', 
+         'time': '10:00', 'day_of_month': 25},
+        {'name': 'ISM Manufacturing', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '10:00', 'day_of_month': 1},
+        {'name': 'ISM Services', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '10:00', 'day_of_month': 3},
+        {'name': 'PCE Price Index', 'country': 'US', 'impact': 'high', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 28},
+        {'name': 'Core PCE', 'country': 'US', 'impact': 'high', 'type': 'inflation', 
+         'time': '08:30', 'day_of_month': 28},
+        {'name': 'Durable Goods Orders', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '08:30', 'day_of_month': 25},
+        {'name': 'New Home Sales', 'country': 'US', 'impact': 'medium', 'type': 'housing', 
+         'time': '10:00', 'day_of_month': 23},
+        {'name': 'Existing Home Sales', 'country': 'US', 'impact': 'medium', 'type': 'housing', 
+         'time': '10:00', 'day_of_month': 20},
+        {'name': 'Philadelphia Fed', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '08:30', 'day_of_month': 18},
+        {'name': 'Empire State Manufacturing', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '08:30', 'day_of_month': 15},
+        {'name': 'Chicago PMI', 'country': 'US', 'impact': 'medium', 'type': 'economic', 
+         'time': '09:45', 'day_of_month': 28},
+        {'name': 'Michigan Consumer Sentiment', 'country': 'US', 'impact': 'medium', 'type': 'sentiment', 
+         'time': '10:00', 'day_of_month': 10},
+    ]
+    
+    # Mock historical data for events
+    mock_history = {
+        'Nonfarm Payrolls': {'previous': '256K', 'forecast': '185K'},
+        'Unemployment Rate': {'previous': '4.1%', 'forecast': '4.2%'},
+        'CPI (MoM)': {'previous': '0.3%', 'forecast': '0.2%'},
+        'CPI (YoY)': {'previous': '2.9%', 'forecast': '2.7%'},
+        'Core CPI': {'previous': '0.3%', 'forecast': '0.3%'},
+        'PPI (MoM)': {'previous': '0.2%', 'forecast': '0.1%'},
+        'Retail Sales': {'previous': '0.4%', 'forecast': '0.3%'},
+        'Fed Interest Rate Decision': {'previous': '4.50%', 'forecast': '4.50%'},
+        'GDP (QoQ)': {'previous': '2.8%', 'forecast': '2.3%'},
+        'Initial Jobless Claims': {'previous': '217K', 'forecast': '215K'},
+        'Housing Starts': {'previous': '1.36M', 'forecast': '1.35M'},
+        'Building Permits': {'previous': '1.48M', 'forecast': '1.46M'},
+        'Consumer Confidence': {'previous': '104.1', 'forecast': '105.0'},
+        'ISM Manufacturing': {'previous': '49.2', 'forecast': '49.5'},
+        'ISM Services': {'previous': '52.7', 'forecast': '52.5'},
+        'PCE Price Index': {'previous': '0.2%', 'forecast': '0.2%'},
+        'Core PCE': {'previous': '0.1%', 'forecast': '0.2%'},
+        'Durable Goods Orders': {'previous': '-0.8%', 'forecast': '0.5%'},
+        'New Home Sales': {'previous': '698K', 'forecast': '680K'},
+        'Existing Home Sales': {'previous': '4.15M', 'forecast': '4.10M'},
+        'Philadelphia Fed': {'previous': '-10.6', 'forecast': '-5.0'},
+        'Empire State Manufacturing': {'previous': '-12.4', 'forecast': '-8.0'},
+        'Michigan Consumer Sentiment': {'previous': '73.0', 'forecast': '74.0'},
+    }
+    
+    events = []
+    now = datetime.now()
+    
+    # Generate events for the requested period
+    for i in range(days + 1):
+        date = now + timedelta(days=i)
+        day_of_week = date.weekday()  # 0 = Monday, 3 = Thursday, etc.
+        day_of_month = date.day
+        date_str = date.strftime('%Y-%m-%d')
+        
+        # Skip weekends
+        if day_of_week >= 5:  # Saturday or Sunday
+            continue
+        
+        for template in event_templates:
+            should_include = False
+            
+            # Weekly event (e.g., Jobless Claims on Thursday)
+            if 'day' in template and template['day'] == day_of_week:
+                should_include = True
+            
+            # Monthly event with variance
+            elif 'day_of_month' in template:
+                variance = abs(template['day_of_month'] - day_of_month)
+                if variance <= 2:  # Within 2 days of scheduled date
+                    should_include = True
+            
+            if should_include:
+                history = mock_history.get(template['name'], {})
+                events.append({
+                    'id': f"{template['name']}-{date_str}",
+                    'name': template['name'],
+                    'country': template['country'],
+                    'date': date_str,
+                    'time': template['time'],
+                    'impact': template['impact'],
+                    'type': template['type'],
+                    'previous': history.get('previous'),
+                    'forecast': history.get('forecast'),
+                    'actual': None,
+                    'notes': template.get('notes')
+                })
+    
+    # Sort by date and time
+    events.sort(key=lambda x: (x['date'], x['time']))
+    
+    return jsonify({
+        'events': events[:20],  # Limit to 20 events
+        'days_requested': days,
+        'generated_at': datetime.now().isoformat()
+    })
+
+
 # Static files
 @app.route('/static/<path:path>')
 def send_static(path):

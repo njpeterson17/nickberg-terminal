@@ -2717,9 +2717,33 @@ body {
 
 .bluesky-feed-full {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   min-height: 400px;
   background: var(--bg-primary);
+}
+
+/* Vertical Scrolling Container */
+.bluesky-scroll-container {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.bluesky-scroll-content {
+  animation: bluesky-scroll 600s linear infinite;
+}
+
+.bluesky-scroll-container:hover .bluesky-scroll-content {
+  animation-play-state: paused;
+}
+
+@keyframes bluesky-scroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
 }
 
 .bluesky-loading {
@@ -2738,40 +2762,51 @@ body {
   color: #1185fe;
 }
 
-/* Individual Bluesky Post */
+/* Individual Bluesky Post - Clickable Link Wrapper */
+.bluesky-post-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.bluesky-post-link:hover {
+  text-decoration: none;
+}
+
 .bluesky-post {
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  padding: 12px 14px;
+  padding: 10px 12px;
   transition: background 0.15s ease;
+  cursor: pointer;
 }
 
 .bluesky-post:hover {
-  background: rgba(17, 133, 254, 0.05);
+  background: rgba(17, 133, 254, 0.08);
 }
 
 .bluesky-post:last-child {
   border-bottom: none;
 }
 
-/* Post Header */
+/* Post Header - Compact */
 .bluesky-post-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .bluesky-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, #1185fe 0%, #0066cc 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: bold;
   flex-shrink: 0;
 }
@@ -2797,36 +2832,42 @@ body {
   text-overflow: ellipsis;
 }
 
+/* Meta line: handle · timestamp */
+.bluesky-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
 .bluesky-handle {
-  font-size: 11px;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.bluesky-dot {
+  color: var(--text-dim);
+}
+
 .bluesky-timestamp {
-  font-size: 10px;
   color: var(--text-dim);
   flex-shrink: 0;
 }
 
-/* Post Content */
+/* Post Content - Compact */
 .bluesky-post-content {
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--text-primary);
-  margin-bottom: 10px;
   word-wrap: break-word;
 }
 
 .bluesky-post-content a {
   color: #1185fe;
   text-decoration: none;
-}
-
-.bluesky-post-content a:hover {
-  text-decoration: underline;
 }
 
 /* Stock tickers in posts */
@@ -2839,47 +2880,19 @@ body {
   font-size: 11px;
 }
 
-/* Embedded Image */
-.bluesky-embed-image {
-  margin: 8px 0;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-  max-height: 200px;
-}
-
-.bluesky-embed-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Post Actions */
-.bluesky-post-actions {
+/* Compact Engagement Stats */
+.bluesky-engagement {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
   display: flex;
-  gap: 16px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border-color);
-}
-
-.bluesky-action {
-  display: flex;
+  gap: 10px;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: color 0.15s ease;
 }
 
-.bluesky-action:hover {
-  color: #1185fe;
-}
-
-.bluesky-action i {
-  font-size: 12px;
+.bluesky-engagement i {
+  font-size: 9px;
+  margin-right: 2px;
 }
 
 /* Error State */
@@ -2912,37 +2925,19 @@ body {
   gap: 12px;
 }
 
-/* Repost indicator */
+/* Repost indicator - Compact */
 .bluesky-repost-indicator {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  gap: 4px;
+  font-size: 9px;
   color: var(--green);
-  margin-bottom: 6px;
-  margin-left: 46px;
+  margin-bottom: 4px;
+  margin-left: 40px;
 }
 
 .bluesky-repost-indicator i {
-  font-size: 10px;
-}
-
-/* Quote post */
-.bluesky-quote-post {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 10px;
-  margin-top: 8px;
-}
-
-.bluesky-quote-post .bluesky-post-header {
-  margin-bottom: 6px;
-}
-
-.bluesky-quote-post .bluesky-post-content {
-  font-size: 11px;
-  margin-bottom: 0;
+  font-size: 9px;
 }
 
 /* Scrollbar styling for Bluesky feed */
@@ -2961,4 +2956,342 @@ body {
 
 .bluesky-feed-full::-webkit-scrollbar-thumb:hover {
   background: #1185fe;
+}
+
+/* ============================================================================
+   ECONOMIC CALENDAR STRIP (Top Bar)
+   ============================================================================ */
+
+.economic-calendar-strip {
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 4px 12px;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    min-height: 32px;
+    gap: 12px;
+}
+
+.econ-strip-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--accent-orange);
+    font-weight: bold;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-right: 1px solid var(--border-color);
+    padding-right: 12px;
+    flex-shrink: 0;
+}
+
+.econ-strip-header i {
+    font-size: 11px;
+}
+
+.econ-strip-content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.econ-strip-content::-webkit-scrollbar {
+    display: none;
+}
+
+.econ-strip-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    padding: 2px 0;
+    cursor: default;
+}
+
+.econ-strip-item:hover {
+    opacity: 0.8;
+}
+
+.econ-strip-time {
+    color: var(--text-secondary);
+    font-size: 10px;
+    min-width: 45px;
+}
+
+.econ-strip-impact {
+    font-size: 10px;
+    line-height: 1;
+}
+
+/* Impact colors for the dot */
+.econ-strip-item.high .econ-strip-impact {
+    color: var(--red);
+}
+
+.econ-strip-item.medium .econ-strip-impact {
+    color: var(--yellow);
+}
+
+.econ-strip-item.low .econ-strip-impact {
+    color: var(--text-dim);
+}
+
+.econ-strip-name {
+    color: var(--text-primary);
+    font-size: 11px;
+}
+
+.econ-strip-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+}
+
+.econ-strip-loading {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+/* =============================================================================
+   MOBILE ADJUSTMENTS FOR ECONOMIC CALENDAR STRIP
+   ============================================================================= */
+@media (max-width: 768px) {
+    .economic-calendar-strip {
+        padding: 6px 8px;
+        gap: 8px;
+    }
+    
+    .econ-strip-header {
+        font-size: 9px;
+        padding-right: 8px;
+    }
+    
+    .econ-strip-content {
+        gap: 12px;
+    }
+    
+    .econ-strip-time {
+        font-size: 9px;
+        min-width: 40px;
+    }
+    
+    .econ-strip-name {
+        font-size: 10px;
+    }
+}
+
+
+/* ============================================================================
+   ECONOMIC CALENDAR - Market Monitor Panel Layout
+   ============================================================================ */
+
+.economic-calendar-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+}
+
+.economic-calendar-list {
+    font-size: 11px;
+}
+
+.econ-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.econ-item:last-child {
+    border-bottom: none;
+}
+
+.econ-time {
+    color: var(--text-secondary);
+    font-size: 10px;
+    min-width: 40px;
+    font-weight: bold;
+}
+
+.econ-impact {
+    font-size: 10px;
+    line-height: 1;
+}
+
+.econ-item.high .econ-impact {
+    color: var(--red);
+}
+
+.econ-item.medium .econ-impact {
+    color: var(--yellow);
+}
+
+.econ-item.low .econ-impact {
+    color: var(--text-dim);
+}
+
+.econ-name {
+    color: var(--text-primary);
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.econ-strip-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 8px 0;
+}
+
+
+/* ============================================================================
+   ECONOMIC CALENDAR - Enhanced Layout
+   ============================================================================ */
+
+.economic-calendar-section {
+    margin-top: 12px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+}
+
+.economic-calendar-list {
+    font-size: 11px;
+}
+
+/* Date Header (TODAY, TOMORROW, etc.) */
+.econ-date-header {
+    background: rgba(255, 102, 0, 0.15);
+    color: var(--accent-orange);
+    padding: 3px 8px;
+    font-size: 9px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-top: 6px;
+    margin-bottom: 4px;
+    border-left: 2px solid var(--accent-orange);
+}
+
+.econ-date-header:first-child {
+    margin-top: 0;
+}
+
+/* Event Item */
+.econ-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.econ-item:hover {
+    background: rgba(255, 102, 0, 0.05);
+}
+
+.econ-item:last-child {
+    border-bottom: none;
+}
+
+/* Time with timezone */
+.econ-time {
+    color: var(--text-secondary);
+    font-size: 10px;
+    min-width: 65px;
+    font-weight: bold;
+}
+
+/* Impact indicator */
+.econ-impact {
+    font-size: 10px;
+    line-height: 1;
+    width: 12px;
+    text-align: center;
+}
+
+.econ-item.high .econ-impact {
+    color: var(--red);
+}
+
+.econ-item.medium .econ-impact {
+    color: var(--yellow);
+}
+
+.econ-item.low .econ-impact {
+    color: var(--text-dim);
+}
+
+/* Event name */
+.econ-name {
+    color: var(--text-primary);
+    font-size: 11px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Details Panel */
+.econ-details-panel {
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 2px solid var(--accent-orange);
+    margin: 0 0 6px 8px;
+    padding: 8px 10px;
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.econ-details-content {
+    font-size: 10px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.econ-details-desc {
+    margin-bottom: 6px;
+    color: var(--text-primary);
+}
+
+.econ-details-forecast,
+.econ-details-previous {
+    display: inline-block;
+    margin-right: 12px;
+    color: var(--text-dim);
+}
+
+/* Empty state */
+.econ-strip-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 12px 8px;
+    text-align: center;
+}
+
+/* Section header */
+.economic-calendar-section .section-header {
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    padding: 4px 8px;
+    font-size: 10px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    border-left: 3px solid var(--accent-orange);
+    margin-bottom: 6px;
 }

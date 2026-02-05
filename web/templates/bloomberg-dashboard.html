@@ -12,7 +12,7 @@
     <meta http-equiv="Expires" content="0">
     <title>Nickberg Terminal</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔮</text></svg>">
-    <link rel="stylesheet" href="/static/css/bloomberg-theme.css?v=999">
+    <link rel="stylesheet" href="/static/css/bloomberg-theme.css?v=1000">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Force ticker visibility - debug styles */
@@ -221,11 +221,13 @@
                                 <div class="loading">LOADING...</div>
                             </div>
 
-                            <!-- Top Mentions (moved inside Market Monitor) -->
-                            <div class="top-mentions-section-compact">
-                                <div class="section-header" style="margin-top: 12px;">TOP MENTIONS</div>
-                                <div id="topCompaniesCompact" class="companies-list-compact">
-                                    <div class="loading">LOADING...</div>
+                            <!-- Economic Calendar -->
+                            <div class="economic-calendar-section">
+                                <div class="section-header" style="margin-top: 12px;">
+                                    <i class="fas fa-calendar-alt"></i> ECONOMIC CALENDAR
+                                </div>
+                                <div id="economicCalendar" class="economic-calendar-list">
+                                    <div class="loading">LOADING EVENTS...</div>
                                 </div>
                             </div>
                         </div>
@@ -470,6 +472,6 @@
     <!-- Chart.js for charts (optional) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <!-- Dashboard JavaScript -->
-    <script src="/static/js/dashboard.js?v=999"></script>
+    <script src="/static/js/dashboard.js?v=1000"></script>
 </body>
 </html>
