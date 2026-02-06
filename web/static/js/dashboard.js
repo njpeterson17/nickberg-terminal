@@ -280,7 +280,7 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     { handle: 'strazza.bsky.social', name: 'Strazza', display: 'Strazza' },
     { handle: 'carnage4life.bsky.social', name: 'Carnage4Life', display: 'Carnage4Life' },
     { handle: 'truflation.bsky.social', name: 'Truflation', display: 'Truflation' },
-    { handle: 'kobeissiletter.bsky.social', name: 'Kobeissi Letter', display: 'Kobeissi Letter' },
+    { handle: 'quiverquant.bsky.social', name: 'Quiver Quantitative', display: 'Quiver Quant' },
     { handle: 'federalreserve.gov', name: 'Federal Reserve', display: 'Fed Reserve' },
     { handle: 'elerianm.bsky.social', name: 'Mohamed El-Erian', display: 'El-Erian' },
     { handle: 'claudia-sahm.bsky.social', name: 'Claudia Sahm', display: 'Claudia Sahm' },
@@ -302,7 +302,7 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     // Trading & Technical Analysis
     { handle: 'stocktwits.bsky.social', name: 'StockTwits', display: 'StockTwits' },
     { handle: 'markminervini.bsky.social', name: 'Mark Minervini', display: 'Mark Minervini' },
-    { handle: 'pelositracker.bsky.social', name: 'Pelosi Tracker', display: 'Pelosi Tracker' },
+    { handle: 'tradingview.bsky.social', name: 'TradingView', display: 'TradingView' },
     { handle: '0dte.bsky.social', name: '0DTE', display: '0DTE' },
     { handle: 'cboe.bsky.social', name: 'CBOE', display: 'CBOE' },
 
