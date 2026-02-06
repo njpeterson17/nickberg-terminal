@@ -1892,7 +1892,7 @@ def get_stock_details(ticker):
                 'dividend_yield': round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') else 0,
                 'dividend_rate': round(info.get('dividendRate', 0), 2) if info.get('dividendRate') else 'N/A',
                 'payout_ratio': round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') else 'N/A',
-                'ex_dividend_date': info.get('exDividendDate', 'N/A'),
+                'ex_dividend_date': datetime.fromtimestamp(info.get('exDividendDate')).strftime('%Y-%m-%d') if info.get('exDividendDate') else 'N/A',
                 'five_year_avg_dividend_yield': round(info.get('fiveYearAvgDividendYield', 0), 2) if info.get('fiveYearAvgDividendYield') else 'N/A',
 
                 # Profitability & Margins
@@ -1955,16 +1955,27 @@ def get_stock_details(ticker):
                 'cached_at': datetime.now().isoformat()
             }
 
-            # Try to get earnings dates
+            # Try to get earnings dates (yfinance now returns a dict instead of DataFrame)
             try:
                 calendar = stock.calendar
-                if calendar is not None and not calendar.empty:
-                    if 'Earnings Date' in calendar.index:
-                        earnings_dates = calendar.loc['Earnings Date']
-                        if hasattr(earnings_dates, 'iloc') and len(earnings_dates) > 0:
-                            result['earnings_date'] = str(earnings_dates.iloc[0])[:10]
+                if calendar is not None:
+                    # New format: calendar is a dict with 'Earnings Date' as a list
+                    if isinstance(calendar, dict):
+                        earnings_dates = calendar.get('Earnings Date')
+                        if earnings_dates and len(earnings_dates) > 0:
+                            result['earnings_date'] = str(earnings_dates[0])[:10]
                         else:
-                            result['earnings_date'] = str(earnings_dates)[:10] if earnings_dates else 'N/A'
+                            result['earnings_date'] = 'N/A'
+                    # Old format: calendar is a DataFrame
+                    elif hasattr(calendar, 'empty') and not calendar.empty:
+                        if 'Earnings Date' in calendar.index:
+                            earnings_dates = calendar.loc['Earnings Date']
+                            if hasattr(earnings_dates, 'iloc') and len(earnings_dates) > 0:
+                                result['earnings_date'] = str(earnings_dates.iloc[0])[:10]
+                            else:
+                                result['earnings_date'] = str(earnings_dates)[:10] if earnings_dates else 'N/A'
+                        else:
+                            result['earnings_date'] = 'N/A'
                     else:
                         result['earnings_date'] = 'N/A'
                 else:
