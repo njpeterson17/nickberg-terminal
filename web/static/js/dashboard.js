@@ -279,7 +279,7 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     // Macro & Markets
     { handle: 'strazza.bsky.social', name: 'Strazza', display: 'Strazza' },
     { handle: 'carnage4life.bsky.social', name: 'Carnage4Life', display: 'Carnage4Life' },
-    { handle: 'truflation.bsky.social', name: 'Truflation', display: 'Truflation' },
+    { handle: 'ecb.bsky.social', name: 'European Central Bank', display: 'ECB' },
     { handle: 'quiverquant.bsky.social', name: 'Quiver Quantitative', display: 'Quiver Quant' },
     { handle: 'federalreserve.gov', name: 'Federal Reserve', display: 'Fed Reserve' },
     { handle: 'elerianm.bsky.social', name: 'Mohamed El-Erian', display: 'El-Erian' },
