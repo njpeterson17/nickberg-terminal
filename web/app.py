@@ -1668,39 +1668,55 @@ def api_market_history(ticker):
 
 class TTLCache:
     """
-    Thread-safe in-memory cache with TTL support.
+    Thread-safe in-memory cache with TTL support and stale-while-revalidate.
     Supports different TTLs for different data types:
-    - Stock prices: 60 seconds
-    - News articles: 300 seconds (5 minutes)
-    - Stock details: 300 seconds
-    - Chart data: 60 seconds
+    - Stock prices: 2 minutes
+    - News articles: 5 minutes
+    - Stock details: 15 minutes (with 30 min stale window)
+    - Chart data: 2 minutes
     """
 
     def __init__(self):
         self._cache = {}
         self._lock = __import__('threading').Lock()
         self._default_ttls = {
-            'stock': 60,      # Stock prices - 1 minute
-            'news': 300,      # News - 5 minutes
-            'details': 300,   # Stock details - 5 minutes
-            'chart': 60,      # Chart data - 1 minute
-            'articles': 300,  # Article lists - 5 minutes
-            'default': 120    # Default - 2 minutes
+            'stock': 120,      # Stock prices - 2 minutes
+            'news': 300,       # News - 5 minutes
+            'details': 900,    # Stock details - 15 minutes
+            'chart': 120,      # Chart data - 2 minutes
+            'articles': 300,   # Article lists - 5 minutes
+            'default': 120     # Default - 2 minutes
+        }
+        # Stale window - serve stale data for this long after TTL expires
+        self._stale_ttls = {
+            'details': 1800,   # Stock details can be stale up to 30 min total
+            'stock': 300,      # Prices can be stale up to 5 min total
+            'default': 600     # Default stale window - 10 min
         }
 
-    def get(self, key, category='default'):
-        """Get value from cache if not expired"""
+    def get(self, key, category='default', allow_stale=False):
+        """Get value from cache. If allow_stale=True, returns expired data with is_stale flag."""
         with self._lock:
             if key in self._cache:
                 entry = self._cache[key]
                 ttl = self._default_ttls.get(category, self._default_ttls['default'])
-                if datetime.now() - entry['timestamp'] < timedelta(seconds=ttl):
+                age = (datetime.now() - entry['timestamp']).total_seconds()
+
+                if age < ttl:
                     logger.debug(f"Cache HIT: {key}")
                     return entry['data']
-                else:
-                    # Expired, remove it
-                    del self._cache[key]
-                    logger.debug(f"Cache EXPIRED: {key}")
+                elif allow_stale:
+                    stale_ttl = self._stale_ttls.get(category, self._stale_ttls['default'])
+                    if age < stale_ttl:
+                        logger.debug(f"Cache STALE: {key} (age={age:.0f}s)")
+                        # Return stale data with marker
+                        data = entry['data'].copy() if isinstance(entry['data'], dict) else entry['data']
+                        if isinstance(data, dict):
+                            data['_stale'] = True
+                        return data
+                # Expired beyond stale window
+                del self._cache[key]
+                logger.debug(f"Cache EXPIRED: {key}")
             return None
 
     def set(self, key, data, category='default'):
@@ -1796,18 +1812,25 @@ def _format_number(num):
 def get_stock_details(ticker):
     """
     Get comprehensive stock details for a ticker.
-    Uses yfinance with 5-minute caching.
+    Uses yfinance with 15-minute caching and stale-while-revalidate.
     """
     ticker = ticker.upper().strip()
-    
+
     # Validate ticker format
     if not ticker.isalpha() or len(ticker) > 5:
         return jsonify({'error': 'Invalid ticker format'}), 400
-    
-    # Check cache first
+
+    # Check cache first (fresh data)
     cached = _get_cached_stock_data(ticker)
     if cached:
         return jsonify(cached)
+
+    # Check for stale data we can serve while fetching fresh
+    stale_data = api_cache.get(f'stock_details:{ticker}', 'details', allow_stale=True)
+    if stale_data:
+        # Return stale data immediately - frontend can refresh if needed
+        logger.debug(f"Serving stale data for {ticker}")
+        return jsonify(stale_data)
     
     try:
         # Try to get real data from yfinance
@@ -3977,7 +4000,60 @@ def get_options_chain(ticker):
         return jsonify({'error': 'Failed to get options chain'}), 500
 
 
+def preload_common_stocks():
+    """Preload common stocks in background on startup for faster first access."""
+    import threading
+    import time
+
+    def _preload():
+        # Wait a bit for server to fully start
+        time.sleep(3)
+
+        # Most commonly searched stocks
+        common_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'META', 'SPY', 'QQQ']
+        logger.info(f"Preloading {len(common_tickers)} common stocks...")
+
+        try:
+            import yfinance as yf
+            for ticker in common_tickers:
+                try:
+                    # Check if already cached
+                    if api_cache.get(f'stock_details:{ticker}', 'details'):
+                        continue
+
+                    stock = yf.Ticker(ticker)
+                    info = stock.info
+
+                    if info and info.get('regularMarketPrice'):
+                        # Build minimal cache data
+                        data = {
+                            'ticker': ticker,
+                            'name': info.get('shortName', ticker),
+                            'price': round(info.get('regularMarketPrice', 0), 2),
+                            'change': round(info.get('regularMarketChange', 0), 2),
+                            'change_percent': round(info.get('regularMarketChangePercent', 0), 2),
+                            'market_cap': info.get('marketCap'),
+                            'pe_ratio': round(info.get('trailingPE', 0), 2) if info.get('trailingPE') else 'N/A',
+                            'volume': info.get('volume', 0),
+                            'preloaded': True
+                        }
+                        api_cache.set(f'stock_details:{ticker}', data, 'details')
+                        logger.debug(f"Preloaded {ticker}")
+                except Exception as e:
+                    logger.debug(f"Failed to preload {ticker}: {e}")
+
+            logger.info("Stock preloading complete")
+        except ImportError:
+            logger.warning("yfinance not available for preloading")
+
+    thread = threading.Thread(target=_preload, daemon=True)
+    thread.start()
+
+
 if __name__ == '__main__':
+    # Start background preloader
+    preload_common_stocks()
+
     if SOCKETIO_AVAILABLE:
         # Run with SocketIO for WebSocket support
         socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
