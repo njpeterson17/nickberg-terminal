@@ -1888,8 +1888,8 @@ def get_stock_details(ticker):
                 'earnings_quarterly_growth': round(info.get('earningsQuarterlyGrowth', 0) * 100, 2) if info.get('earningsQuarterlyGrowth') else 'N/A',
                 'revenue_growth': round(info.get('revenueGrowth', 0) * 100, 2) if info.get('revenueGrowth') else 'N/A',
 
-                # Dividends
-                'dividend_yield': round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') else 0,
+                # Dividends (dividendYield from yfinance is already in % form, e.g. 0.38 = 0.38%)
+                'dividend_yield': round(info.get('dividendYield', 0), 2) if info.get('dividendYield') else 0,
                 'dividend_rate': round(info.get('dividendRate', 0), 2) if info.get('dividendRate') else 'N/A',
                 'payout_ratio': round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') else 'N/A',
                 'ex_dividend_date': datetime.fromtimestamp(info.get('exDividendDate')).strftime('%Y-%m-%d') if info.get('exDividendDate') else 'N/A',
@@ -2611,7 +2611,7 @@ def stock_screener():
                 'market_cap_fmt': _format_market_cap(info.get('marketCap')),
                 'pe_ratio': round(info.get('trailingPE') or 0, 2) if info.get('trailingPE') else None,
                 'forward_pe': round(info.get('forwardPE') or 0, 2) if info.get('forwardPE') else None,
-                'dividend_yield': round((info.get('dividendYield') or 0) * 100, 2),
+                'dividend_yield': round(info.get('dividendYield') or 0, 2),
                 'sector': info.get('sector') or 'Unknown',
                 'industry': info.get('industry') or 'Unknown',
                 'volume': info.get('averageVolume') or 0,
@@ -3868,7 +3868,7 @@ def compare_stocks():
                     'pe_ratio': round(info.get('trailingPE', 0), 2) if info.get('trailingPE') else 'N/A',
                     'forward_pe': round(info.get('forwardPE', 0), 2) if info.get('forwardPE') else 'N/A',
                     'peg_ratio': round(info.get('pegRatio', 0), 2) if info.get('pegRatio') else 'N/A',
-                    'dividend_yield': round(info.get('dividendYield', 0) * 100, 2) if info.get('dividendYield') else 0,
+                    'dividend_yield': round(info.get('dividendYield', 0), 2) if info.get('dividendYield') else 0,
                     'beta': round(info.get('beta', 0), 2) if info.get('beta') else 'N/A',
                     '52_week_high': round(info.get('fiftyTwoWeekHigh', 0), 2) if info.get('fiftyTwoWeekHigh') else 'N/A',
                     '52_week_low': round(info.get('fiftyTwoWeekLow', 0), 2) if info.get('fiftyTwoWeekLow') else 'N/A',
