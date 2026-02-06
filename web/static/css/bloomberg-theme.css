@@ -5908,14 +5908,14 @@ mark {
 .compare-results {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .compare-chart-container {
     background: var(--bg-secondary);
     border-radius: 8px;
-    padding: 12px;
-    height: 220px;
+    padding: 10px;
+    height: 160px;
 }
 
 .compare-metrics-table-container {
