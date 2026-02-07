@@ -1820,14 +1820,15 @@ def get_stock_details(ticker):
     if not ticker.isalpha() or len(ticker) > 5:
         return jsonify({'error': 'Invalid ticker format'}), 400
 
-    # Check cache first (fresh data)
+    # Check cache first (fresh data) - but skip if it's minimal preloaded data
     cached = _get_cached_stock_data(ticker)
-    if cached:
+    if cached and not cached.get('preloaded'):
         return jsonify(cached)
 
     # Check for stale data we can serve while fetching fresh
+    # Skip preloaded data since it's incomplete
     stale_data = api_cache.get(f'stock_details:{ticker}', 'details', allow_stale=True)
-    if stale_data:
+    if stale_data and not stale_data.get('preloaded'):
         # Return stale data immediately - frontend can refresh if needed
         logger.debug(f"Serving stale data for {ticker}")
         return jsonify(stale_data)
