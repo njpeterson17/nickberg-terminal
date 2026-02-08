@@ -333,113 +333,86 @@ const BLUESKY_FINANCIAL_ACCOUNTS = [
     { handle: 'apoorv.xyz', name: 'Apoorv Lathey', display: 'Apoorv' }
 ];
 
-// Cache for Bluesky posts
-let blueskyCache = {
-    posts: [],
-    timestamp: 0,
-    dids: {}  // Cache for DID lookups
-};
+// ============================================
+// BLUESKY FEED - Optimized Loader Integration
+// ============================================
 
-const BLUESKY_CACHE_TTL = 120000; // 2 minutes
+let blueskyLoader = null;
+let blueskyRefreshInterval = null;
 
-// Initialize Bluesky Feed
+// Initialize Bluesky Feed with Optimized Loader
 async function initBlueskyFeed() {
     const feedContainer = document.getElementById('blueskyFeedFull');
     if (!feedContainer) return;
     
-    // Load posts immediately
-    await loadBlueskyFeed(feedContainer);
-    
-    // Refresh every 2 minutes
-    setInterval(() => {
-        loadBlueskyFeed(feedContainer);
-    }, BLUESKY_CACHE_TTL);
-}
-
-// Load Bluesky posts from financial accounts
-async function loadBlueskyFeed(container) {
-    // Check cache first
-    if (Date.now() - blueskyCache.timestamp < BLUESKY_CACHE_TTL && blueskyCache.posts.length > 0) {
-        renderBlueskyPosts(container, blueskyCache.posts);
-        return;
+    // Cleanup existing loader if any
+    if (blueskyLoader) {
+        blueskyLoader.destroy();
     }
     
-    try {
-        const allPosts = [];
-        
-        // Fetch posts from each account
-        for (const account of BLUESKY_FINANCIAL_ACCOUNTS) {
-            try {
-                const posts = await fetchBlueskyPosts(account.handle, 5);
-                allPosts.push(...posts);
-            } catch (error) {
-                console.warn(`Failed to fetch posts for ${account.handle}:`, error);
-            }
-        }
-        
-        // Sort by date (newest first)
-        allPosts.sort((a, b) => new Date(b.indexedAt) - new Date(a.indexedAt));
-        
-        // Take top 120 posts
-        const topPosts = allPosts.slice(0, 120);
-        
-        // Update cache
-        blueskyCache.posts = topPosts;
-        blueskyCache.timestamp = Date.now();
-        
-        // Render
-        renderBlueskyPosts(container, topPosts);
-        
-    } catch (error) {
-        console.error('Error loading Bluesky feed:', error);
-        showBlueskyError(container, 'Failed to load Bluesky feed. Will retry shortly.');
-    }
-}
-
-// Fetch posts from a specific Bluesky account
-async function fetchBlueskyPosts(handle, limit = 5) {
-    // First, resolve the handle to a DID
-    let did = blueskyCache.dids[handle];
-    if (!did) {
-        const resolveResponse = await fetch(`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`);
-        if (!resolveResponse.ok) throw new Error(`Failed to resolve handle: ${handle}`);
-        const resolveData = await resolveResponse.json();
-        did = resolveData.did;
-        blueskyCache.dids[handle] = did;
-    }
-    
-    // Fetch author's feed
-    const feedResponse = await fetch(`https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=${encodeURIComponent(did)}&limit=${limit}`);
-    if (!feedResponse.ok) throw new Error(`Failed to fetch feed for: ${handle}`);
-    const feedData = await feedResponse.json();
-    
-    // Get account info
-    const account = BLUESKY_FINANCIAL_ACCOUNTS.find(a => a.handle === handle) || { name: handle, display: handle };
-    
-    // Process posts
-    return feedData.feed.map(item => {
-        const post = item.post;
-        return {
-            uri: post.uri,
-            cid: post.cid,
-            text: post.record?.text || '',
-            createdAt: post.record?.createdAt,
-            indexedAt: post.indexedAt,
-            author: {
-                did: post.author.did,
-                handle: post.author.handle,
-                displayName: post.author.displayName || account.display,
-                avatar: post.author.avatar,
-                name: account.name
-            },
-            embed: post.embed,
-            replyCount: post.replyCount || 0,
-            repostCount: post.repostCount || 0,
-            likeCount: post.likeCount || 0,
-            isRepost: item.reason?.$type === 'app.bsky.feed.defs#reasonRepost',
-            repostedBy: item.reason?.by
-        };
+    // Create new loader instance with optimized settings
+    blueskyLoader = new BlueskyLoader({
+        CONCURRENCY: 5,              // 5 parallel API calls
+        POSTS_PER_ACCOUNT: 5,        // Posts per account
+        CACHE_TTL: 2 * 60 * 1000,    // 2 minutes memory cache
+        DB_CACHE_TTL: 10 * 60 * 1000, // 10 minutes IndexedDB cache
+        PRIORITY_ACCOUNTS: [         // Load these first for quick display
+            'unusualwhales.bsky.social',
+            'spotgamma.bsky.social', 
+            'strazza.bsky.social',
+            'ladebackk.bsky.social',
+            'jarvisflow.bsky.social'
+        ]
     });
+    
+    // Load the feed with progress callbacks
+    await blueskyLoader.load(BLUESKY_FINANCIAL_ACCOUNTS, feedContainer, {
+        onProgress: (posts, errors, batchSize) => {
+            // Progressive rendering - show posts as they load
+            if (posts.length >= 20) {
+                renderBlueskyPosts(feedContainer, posts.slice(0, 120));
+            }
+        },
+        onComplete: (posts, errors) => {
+            console.log(`[BlueSky] Feed ready: ${posts.length} posts`);
+            renderBlueskyPosts(feedContainer, posts.slice(0, 120));
+            
+            if (errors.length > 0) {
+                console.warn('[BlueSky] Some accounts failed:', errors.map(e => e.account.handle).join(', '));
+            }
+        },
+        onError: (error) => {
+            console.error('[BlueSky] Feed error:', error);
+            showBlueskyError(feedContainer, 'Failed to load BlueSky feed. Will retry shortly.');
+        }
+    });
+    
+    // Setup auto-refresh every 2 minutes
+    setupBlueskyRefresh();
+}
+
+// Setup periodic refresh
+function setupBlueskyRefresh() {
+    // Clear any existing interval
+    if (blueskyRefreshInterval) {
+        clearInterval(blueskyRefreshInterval);
+    }
+    
+    blueskyRefreshInterval = setInterval(() => {
+        if (blueskyLoader && !state.loading) {
+            console.log('[BlueSky] Auto-refreshing feed...');
+            blueskyLoader.refresh(BLUESKY_FINANCIAL_ACCOUNTS);
+        }
+    }, 120000); // 2 minutes
+}
+
+// Legacy load function - now uses optimized loader
+async function loadBlueskyFeed(container) {
+    // This function is kept for backwards compatibility
+    // The actual loading is handled by initBlueskyFeed
+    if (!blueskyLoader) {
+        await initBlueskyFeed();
+    }
 }
 
 // Helper: Convert Bluesky AT URI to web URL
@@ -6439,3 +6412,30 @@ window.switchStockTab = function(tabName) {
 
 window.loadOptionsExpirations = loadOptionsExpirations;
 window.loadOptionsForExpiration = loadOptionsForExpiration;
+window.loadOptionsExpirations = loadOptionsExpirations;
+window.loadOptionsForExpiration = loadOptionsForExpiration;
+
+// ============================================
+// BLUESKY CLEANUP - Page Unload Handler
+// ============================================
+
+window.addEventListener('beforeunload', () => {
+    // Cleanup BlueSky loader to abort pending requests
+    if (blueskyLoader) {
+        blueskyLoader.destroy();
+    }
+    if (blueskyRefreshInterval) {
+        clearInterval(blueskyRefreshInterval);
+    }
+});
+
+// Cleanup on page visibility change (mobile backgrounding)
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && blueskyLoader) {
+        // Pause loading when tab is hidden
+        blueskyLoader.destroy();
+    } else if (!document.hidden && !blueskyLoader) {
+        // Resume when tab becomes visible
+        initBlueskyFeed();
+    }
+});
